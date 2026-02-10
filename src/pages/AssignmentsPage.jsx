@@ -1,34 +1,49 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../components/ThemeProvider';
 import Modal from '../components/Modal';
 import TaskRow from '../components/assignments/TaskRow';
+import { loadTasks, saveTasks, loadSchedule } from '../lib/db';
 
 // Initial task data - empty for fresh start
 const initialTasks = [];
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Helper to get course list from schedule localStorage
-const getCourseList = () => {
-    try {
-        const savedSchedule = localStorage.getItem('jadwal-schedule');
-        if (!savedSchedule) return [];
-        const schedule = JSON.parse(savedSchedule);
-        const courseNames = new Set();
-        Object.values(schedule).flat().forEach(course => {
-            if (course.name) courseNames.add(course.name);
-        });
-        return Array.from(courseNames).sort();
-    } catch { return []; }
-};
+
 
 export default function AssignmentsPage() {
     const { toggleTheme } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
-    const [tasks, setTasks] = useState(() => {
-        const saved = localStorage.getItem('jadwal-tasks');
-        return saved ? JSON.parse(saved) : initialTasks;
-    });
+    const [tasks, setTasks] = useState(initialTasks);
+    const [courseList, setCourseList] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const isInitialLoad = useRef(true);
+
+    // Load data from Supabase on mount
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                const [savedTasks, savedSchedule] = await Promise.all([
+                    loadTasks(),
+                    loadSchedule(),
+                ]);
+                if (savedTasks) setTasks(savedTasks);
+                if (savedSchedule) {
+                    const courseNames = new Set();
+                    Object.values(savedSchedule).flat().forEach(course => {
+                        if (course.name) courseNames.add(course.name);
+                    });
+                    setCourseList(Array.from(courseNames).sort());
+                }
+            } catch (err) {
+                console.error('Error loading tasks:', err);
+            } finally {
+                setIsLoading(false);
+                isInitialLoad.current = false;
+            }
+        }
+        fetchData();
+    }, []);
 
     // Cleanup tasks completed more than 7 days ago
     const cleanupOldTasks = useCallback(() => {
@@ -51,8 +66,13 @@ export default function AssignmentsPage() {
         cleanupOldTasks();
     }, [cleanupOldTasks]);
 
+    // Save to Supabase when tasks change (skip initial load)
     useEffect(() => {
-        localStorage.setItem('jadwal-tasks', JSON.stringify(tasks));
+        if (isInitialLoad.current) return;
+        const timer = setTimeout(() => {
+            saveTasks(tasks);
+        }, 500);
+        return () => clearTimeout(timer);
     }, [tasks]);
 
     const handleToggle = (taskId) => {
@@ -313,7 +333,7 @@ export default function AssignmentsPage() {
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                             Mata Kuliah *
                         </label>
-                        {getCourseList().length > 0 ? (
+                        {courseList.length > 0 ? (
                             <select
                                 required
                                 value={formData.course}
@@ -321,7 +341,7 @@ export default function AssignmentsPage() {
                                 className="w-full px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                             >
                                 <option value="">Pilih Mata Kuliah</option>
-                                {getCourseList().map(course => (
+                                {courseList.map(course => (
                                     <option key={course} value={course}>{course}</option>
                                 ))}
                             </select>
@@ -335,7 +355,7 @@ export default function AssignmentsPage() {
                                 placeholder="Tambah jadwal dulu untuk dropdown"
                             />
                         )}
-                        {getCourseList().length === 0 && (
+                        {courseList.length === 0 && (
                             <p className="text-xs text-slate-400 mt-1">Tip: Tambah jadwal kuliah untuk mendapatkan dropdown</p>
                         )}
                     </div>

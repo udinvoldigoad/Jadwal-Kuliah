@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { loadSchedule, saveSchedule, loadTasks, loadExams } from '../lib/db';
 import Header from '../components/Header';
 import Modal from '../components/Modal';
 import StatsCard from '../components/schedule/StatsCard';
@@ -74,10 +75,11 @@ export default function SchedulePage() {
     const [selectedDay, setSelectedDay] = useState(initialDay);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCourse, setEditingCourse] = useState(null);
-    const [scheduleData, setScheduleData] = useState(() => {
-        const saved = localStorage.getItem('jadwal-schedule');
-        return saved ? JSON.parse(saved) : initialScheduleData;
-    });
+    const [scheduleData, setScheduleData] = useState(initialScheduleData);
+    const [isLoading, setIsLoading] = useState(true);
+    const [tasksDeadlineCount, setTasksDeadlineCount] = useState(0);
+    const [upcomingExamsCount, setUpcomingExamsCount] = useState(0);
+    const isInitialLoad = useRef(true);
     const [formData, setFormData] = useState({
         name: '',
         day: 'mon',
@@ -89,49 +91,62 @@ export default function SchedulePage() {
         lecturer: '',
     });
 
+    // Load data from Supabase on mount
     useEffect(() => {
-        localStorage.setItem('jadwal-schedule', JSON.stringify(scheduleData));
+        async function fetchData() {
+            try {
+                const [savedSchedule, savedTasks, savedExams] = await Promise.all([
+                    loadSchedule(),
+                    loadTasks(),
+                    loadExams(),
+                ]);
+                if (savedSchedule) setScheduleData(savedSchedule);
+
+                // Calculate tasks deadline count
+                if (savedTasks && Array.isArray(savedTasks)) {
+                    const now = Date.now();
+                    const sevenDaysLater = now + (7 * 24 * 60 * 60 * 1000);
+                    setTasksDeadlineCount(savedTasks.filter(t => !t.isCompleted && t.dueDateTimestamp <= sevenDaysLater).length);
+                }
+
+                // Calculate upcoming exams count
+                if (savedExams && Array.isArray(savedExams)) {
+                    const now = Date.now();
+                    const thirtyDaysLater = now + (30 * 24 * 60 * 60 * 1000);
+                    setUpcomingExamsCount(savedExams.filter(e => {
+                        const examTime = new Date(e.targetDate).getTime();
+                        return examTime >= now && examTime <= thirtyDaysLater;
+                    }).length);
+                }
+            } catch (err) {
+                console.error('Error loading data:', err);
+            } finally {
+                setIsLoading(false);
+                isInitialLoad.current = false;
+            }
+        }
+        fetchData();
+    }, []);
+
+    // Save to Supabase when scheduleData changes (skip initial load)
+    useEffect(() => {
+        if (isInitialLoad.current) return;
+        const timer = setTimeout(() => {
+            saveSchedule(scheduleData);
+        }, 500);
+        return () => clearTimeout(timer);
     }, [scheduleData]);
 
     const courses = scheduleData[selectedDay] || [];
-
-    // Calculate stats dynamically
     const allCourses = Object.values(scheduleData).flat();
     const totalSks = allCourses.reduce((sum, c) => sum + (c.sks || 0), 0);
     const todayClasses = courses.length;
 
-    // Get tasks deadline count from localStorage
-    const getTasksDeadlineCount = () => {
-        try {
-            const savedTasks = localStorage.getItem('jadwal-tasks');
-            if (!savedTasks) return 0;
-            const tasks = JSON.parse(savedTasks);
-            const now = Date.now();
-            const sevenDaysLater = now + (7 * 24 * 60 * 60 * 1000);
-            return tasks.filter(t => !t.isCompleted && t.dueDateTimestamp <= sevenDaysLater).length;
-        } catch { return 0; }
-    };
-
-    // Get upcoming exams count from localStorage
-    const getUpcomingExamsCount = () => {
-        try {
-            const savedExams = localStorage.getItem('jadwal-exams');
-            if (!savedExams) return 0;
-            const exams = JSON.parse(savedExams);
-            const now = Date.now();
-            const thirtyDaysLater = now + (30 * 24 * 60 * 60 * 1000);
-            return exams.filter(e => {
-                const examTime = new Date(e.targetDate).getTime();
-                return examTime >= now && examTime <= thirtyDaysLater;
-            }).length;
-        } catch { return 0; }
-    };
-
     const stats = [
         { label: 'Total SKS', value: `${totalSks} SKS`, icon: 'credit_score', iconColor: 'text-primary/50' },
         { label: 'Kelas Hari Ini', value: String(todayClasses), icon: 'today', iconColor: 'text-green-500/50' },
-        { label: 'Tugas Deadline', value: String(getTasksDeadlineCount()), icon: 'assignment_late', iconColor: 'text-orange-500/50' },
-        { label: 'Ujian Mendatang', value: String(getUpcomingExamsCount()), icon: 'event_busy', iconColor: 'text-red-500/50' },
+        { label: 'Tugas Deadline', value: String(tasksDeadlineCount), icon: 'assignment_late', iconColor: 'text-orange-500/50' },
+        { label: 'Ujian Mendatang', value: String(upcomingExamsCount), icon: 'event_busy', iconColor: 'text-red-500/50' },
     ];
 
     const handleOpenModal = () => {

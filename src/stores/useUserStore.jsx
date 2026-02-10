@@ -1,35 +1,49 @@
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useState, useCallback, createContext, useContext } from 'react';
+import { useAuth } from '../components/AuthProvider';
 
 const UserContext = createContext(null);
 
-const STORAGE_KEY = 'jadwal-user-profile';
-
-const defaultProfile = {
-    name: '',
-    program: '',
-    photoUrl: '',
-};
-
 export function UserProvider({ children }) {
-    const [profile, setProfile] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : defaultProfile;
+    const { user } = useAuth();
+
+    // Profile data comes from Google auth metadata
+    const profile = {
+        name: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+        program: user?.user_metadata?.program || '',
+        photoUrl: user?.user_metadata?.avatar_url || user?.user_metadata?.picture || '',
+        email: user?.email || '',
+    };
+
+    const [localProgram, setLocalProgram] = useState(() => {
+        try {
+            const saved = localStorage.getItem(`jadwal-program-${user?.id}`);
+            return saved || '';
+        } catch { return ''; }
     });
 
-    useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-    }, [profile]);
+    const mergedProfile = {
+        ...profile,
+        program: localProgram || profile.program,
+    };
 
     const updateProfile = useCallback((updates) => {
-        setProfile(prev => ({ ...prev, ...updates }));
-    }, []);
+        if (updates.program !== undefined) {
+            setLocalProgram(updates.program);
+            try {
+                localStorage.setItem(`jadwal-program-${user?.id}`, updates.program);
+            } catch { /* ignore */ }
+        }
+    }, [user?.id]);
 
     const resetProfile = useCallback(() => {
-        setProfile(defaultProfile);
-    }, []);
+        setLocalProgram('');
+        try {
+            localStorage.removeItem(`jadwal-program-${user?.id}`);
+        } catch { /* ignore */ }
+    }, [user?.id]);
 
     return (
-        <UserContext.Provider value={{ profile, updateProfile, resetProfile }}>
+        <UserContext.Provider value={{ profile: mergedProfile, updateProfile, resetProfile }}>
             {children}
         </UserContext.Provider>
     );

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from '../components/Header';
 import Modal from '../components/Modal';
 import CountdownHero from '../components/exams/CountdownHero';
 import ExamRow from '../components/exams/ExamRow';
+import { loadExams, saveExams, loadSchedule } from '../lib/db';
 
 // Helper to get day name in Indonesian
 const getDayName = (date) => {
@@ -34,19 +35,7 @@ const formatShortDate = (date) => {
 // Initial exams - empty for fresh start
 const initialExams = [];
 
-// Helper to get course list from schedule localStorage
-const getCourseList = () => {
-    try {
-        const savedSchedule = localStorage.getItem('jadwal-schedule');
-        if (!savedSchedule) return [];
-        const schedule = JSON.parse(savedSchedule);
-        const courseNames = new Set();
-        Object.values(schedule).flat().forEach(course => {
-            if (course.name) courseNames.add(course.name);
-        });
-        return Array.from(courseNames).sort();
-    } catch { return []; }
-};
+
 
 // Convert saved data back to proper format with Date objects
 const parseExams = (savedExams) => {
@@ -57,11 +46,11 @@ const parseExams = (savedExams) => {
 };
 
 export default function ExamsPage() {
-    const [exams, setExams] = useState(() => {
-        const saved = localStorage.getItem('jadwal-exams');
-        return saved ? parseExams(JSON.parse(saved)) : initialExams;
-    });
-    const [nextExam, setNextExam] = useState(exams[0]);
+    const [exams, setExams] = useState(initialExams);
+    const [courseList, setCourseList] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const isInitialLoad = useRef(true);
+    const [nextExam, setNextExam] = useState(null);
     const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExam, setEditingExam] = useState(null);
@@ -75,9 +64,39 @@ export default function ExamsPage() {
         lecturer: '',
     });
 
-    // Save exams to localStorage
+    // Load data from Supabase on mount
     useEffect(() => {
-        localStorage.setItem('jadwal-exams', JSON.stringify(exams));
+        async function fetchData() {
+            try {
+                const [savedExams, savedSchedule] = await Promise.all([
+                    loadExams(),
+                    loadSchedule(),
+                ]);
+                if (savedExams) setExams(parseExams(savedExams));
+                if (savedSchedule) {
+                    const courseNames = new Set();
+                    Object.values(savedSchedule).flat().forEach(course => {
+                        if (course.name) courseNames.add(course.name);
+                    });
+                    setCourseList(Array.from(courseNames).sort());
+                }
+            } catch (err) {
+                console.error('Error loading exams:', err);
+            } finally {
+                setIsLoading(false);
+                isInitialLoad.current = false;
+            }
+        }
+        fetchData();
+    }, []);
+
+    // Save to Supabase when exams change (skip initial load)
+    useEffect(() => {
+        if (isInitialLoad.current) return;
+        const timer = setTimeout(() => {
+            saveExams(exams);
+        }, 500);
+        return () => clearTimeout(timer);
     }, [exams]);
 
     useEffect(() => {
@@ -273,7 +292,7 @@ export default function ExamsPage() {
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                             Nama Mata Kuliah *
                         </label>
-                        {getCourseList().length > 0 ? (
+                        {courseList.length > 0 ? (
                             <select
                                 required
                                 value={formData.name}
@@ -281,7 +300,7 @@ export default function ExamsPage() {
                                 className="w-full px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                             >
                                 <option value="">Pilih Mata Kuliah</option>
-                                {getCourseList().map(course => (
+                                {courseList.map(course => (
                                     <option key={course} value={course}>{course}</option>
                                 ))}
                             </select>
@@ -295,7 +314,7 @@ export default function ExamsPage() {
                                 placeholder="Tambah jadwal dulu untuk dropdown"
                             />
                         )}
-                        {getCourseList().length === 0 && (
+                        {courseList.length === 0 && (
                             <p className="text-xs text-slate-400 mt-1">Tip: Tambah jadwal kuliah untuk mendapatkan dropdown</p>
                         )}
                     </div>
