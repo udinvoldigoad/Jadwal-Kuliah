@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import { useTheme } from './ThemeProvider';
+import { useAuth } from './AuthProvider';
 import { resetAllData } from '../lib/db';
 
 export default function SettingsModal({ isOpen, onClose, onResetData }) {
     const { theme, toggleTheme } = useTheme();
+    const { signOut } = useAuth();
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [isConfirmed, setIsConfirmed] = useState(false);
+
+    const handleLogout = async () => {
+        await signOut();
+        window.location.reload();
+    };
 
     const handleReset = async () => {
         if (!isConfirmed) return;
@@ -114,11 +121,21 @@ export default function SettingsModal({ isOpen, onClose, onResetData }) {
                     )}
                 </div>
 
+                {/* Logout Button */}
+                <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-4 h-10 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-sm mt-2"
+                >
+                    <span className="material-symbols-outlined text-[18px]">logout</span>
+                    Keluar
+                </button>
+
                 {/* Close Button */}
                 <button
                     type="button"
                     onClick={handleClose}
-                    className="w-full px-4 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-medium text-sm mt-2"
+                    className="w-full px-4 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-medium text-sm"
                 >
                     Tutup
                 </button>

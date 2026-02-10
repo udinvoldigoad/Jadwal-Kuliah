@@ -2,12 +2,15 @@ import { useState, useRef, useEffect } from 'react';
 
 export default function CourseCard({ course, isLive = false, onEdit, onDelete }) {
     const [menuOpen, setMenuOpen] = useState(false);
-    const menuRef = useRef(null);
+    const desktopMenuRef = useRef(null);
+    const mobileMenuRef = useRef(null);
 
     // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
+            const isInsideDesktop = desktopMenuRef.current && desktopMenuRef.current.contains(event.target);
+            const isInsideMobile = mobileMenuRef.current && mobileMenuRef.current.contains(event.target);
+            if (!isInsideDesktop && !isInsideMobile) {
                 setMenuOpen(false);
             }
         };
@@ -61,7 +64,7 @@ export default function CourseCard({ course, isLive = false, onEdit, onDelete })
                     {isLive && (
                         <span className="bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-green-200 dark:border-green-800 animate-pulse">LIVE</span>
                     )}
-                    <div className="relative" ref={menuRef}>
+                    <div className="relative" ref={desktopMenuRef}>
                         <button
                             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
                             className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -120,7 +123,7 @@ export default function CourseCard({ course, isLive = false, onEdit, onDelete })
                     </div>
 
                     {/* Menu button */}
-                    <div className="relative flex-shrink-0" ref={menuRef}>
+                    <div className="relative flex-shrink-0" ref={mobileMenuRef}>
                         <button
                             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

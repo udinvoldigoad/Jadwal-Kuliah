@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from './ThemeProvider';
+import { useAuth } from './AuthProvider';
 import { useUser } from '../stores/useUserStore.jsx';
 
 export default function MobileTopNavbar({
@@ -12,6 +13,7 @@ export default function MobileTopNavbar({
     onNextWeek
 }) {
     const { theme, toggleTheme } = useTheme();
+    const { signOut } = useAuth();
     const { profile } = useUser();
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
@@ -110,6 +112,18 @@ export default function MobileTopNavbar({
                             >
                                 <span className="material-symbols-outlined text-[18px] text-slate-500 dark:text-slate-400">settings</span>
                                 Pengaturan
+                            </button>
+                            <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
+                            <button
+                                onClick={async () => {
+                                    setMenuOpen(false);
+                                    await signOut();
+                                    window.location.reload();
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2.5 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">logout</span>
+                                Keluar
                             </button>
                         </div>
                     )}
