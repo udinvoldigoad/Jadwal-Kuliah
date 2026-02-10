@@ -8,11 +8,22 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
+        // If supabase client is not available, stop loading and show login
+        if (!supabase) {
             setLoading(false);
-        });
+            return;
+        }
+
+        // Get initial session
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => {
+                setUser(session?.user ?? null);
+                setLoading(false);
+            })
+            .catch((err) => {
+                console.error('Failed to get session:', err);
+                setLoading(false);
+            });
 
         // Listen for auth state changes (login, logout, token refresh)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
