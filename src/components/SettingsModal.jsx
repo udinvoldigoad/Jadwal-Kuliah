@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import { useTheme } from './ThemeProvider';
+import { resetAllData } from '../lib/db';
 
 export default function SettingsModal({ isOpen, onClose, onResetData }) {
     const { theme, toggleTheme } = useTheme();
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [isConfirmed, setIsConfirmed] = useState(false);
 
-    const handleReset = () => {
+    const handleReset = async () => {
         if (!isConfirmed) return;
 
-        localStorage.removeItem('jadwal-schedule');
-        localStorage.removeItem('jadwal-tasks');
-        localStorage.removeItem('jadwal-exams');
+        // Delete all data from Supabase
+        await resetAllData();
 
         onClose();
         window.location.reload();

@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import { resetAllData } from '../lib/db';
 
 export default function ResetDataModal({ isOpen, onClose }) {
     const [isConfirmed, setIsConfirmed] = useState(false);
 
-    const handleReset = () => {
+    const handleReset = async () => {
         if (!isConfirmed) return;
 
-        // Remove all app data from localStorage
-        localStorage.removeItem('jadwal-schedule');
-        localStorage.removeItem('jadwal-tasks');
-        localStorage.removeItem('jadwal-exams');
-        localStorage.removeItem('jadwal-user-profile');
+        // Delete all data from Supabase
+        await resetAllData();
 
         // Close modal and refresh page
         onClose();
@@ -69,8 +67,8 @@ export default function ResetDataModal({ isOpen, onClose }) {
                         onClick={handleReset}
                         disabled={!isConfirmed}
                         className={`flex-1 px-4 h-10 rounded-lg font-medium text-sm transition-all ${isConfirmed
-                                ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                            ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                             }`}
                     >
                         Reset Semua Data
