@@ -4,6 +4,7 @@ import { supabase } from './supabase';
  * Helper to get current user ID from session.
  */
 async function getUserId() {
+    if (!supabase) return null;
     const { data: { session } } = await supabase.auth.getSession();
     return session?.user?.id;
 }
