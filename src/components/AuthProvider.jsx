@@ -36,6 +36,9 @@ export function AuthProvider({ children }) {
     }, []);
 
     const signInWithGoogle = async () => {
+        if (!supabase) {
+            throw new Error('Supabase tidak tersedia. Periksa konfigurasi.');
+        }
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -49,6 +52,7 @@ export function AuthProvider({ children }) {
     };
 
     const signOut = async () => {
+        if (!supabase) return;
         const { error } = await supabase.auth.signOut();
         if (error) {
             console.error('Logout error:', error.message);
