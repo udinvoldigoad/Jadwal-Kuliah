@@ -18,14 +18,39 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const stopMenuEvent = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    const handleRowClick = (event) => {
+        if (event.target.closest('[data-task-menu]')) return;
+        setDetailOpen(true);
+    };
+
+    const handleEditClick = (event) => {
+        stopMenuEvent(event);
+        setMenuOpen(false);
+        setDetailOpen(false);
+        onEdit?.(task);
+    };
+
+    const handleDeleteClick = (event) => {
+        stopMenuEvent(event);
+        setMenuOpen(false);
+        setDetailOpen(false);
+        onDelete?.(task.id);
+    };
+
     return (
         <>
             <div
-                onClick={() => setDetailOpen(true)}
-                className={`group flex items-start md:items-center gap-3 md:gap-4 px-3 md:px-4 py-3 border-b border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer ${isCompleted ? 'opacity-60' : ''}`}
+                onClick={handleRowClick}
+                className={`group relative flex items-start md:items-center gap-3 md:gap-4 px-3 md:px-4 py-3 border-b border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer ${isCompleted ? 'opacity-60' : ''} ${menuOpen ? 'z-40' : ''}`}
             >
                 {/* Checkbox */}
                 <button
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all mt-0.5 md:mt-0 ${isCompleted
                         ? 'bg-green-500 border-green-500 text-white'
@@ -67,8 +92,16 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
                 </div>
 
                 {/* Menu button */}
-                <div className="relative flex-shrink-0" ref={menuRef}>
+                <div
+                    className="relative flex-shrink-0"
+                    ref={menuRef}
+                    data-task-menu
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                >
                     <button
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
                         className="p-1.5 md:p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
@@ -79,7 +112,8 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
                         <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 w-32 z-[100]">
                             {onEdit && (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit(task); }}
+                                    type="button"
+                                    onClick={handleEditClick}
                                     className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2.5"
                                 >
                                     <span className="material-symbols-outlined text-[18px] text-slate-500">edit</span>
@@ -88,7 +122,8 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
                             )}
                             {onDelete && (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(task.id); }}
+                                    type="button"
+                                    onClick={handleDeleteClick}
                                     className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2.5"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -148,6 +183,7 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
                     {/* Actions */}
                     <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                         <button
+                            type="button"
                             onClick={() => { onToggle(task.id); setDetailOpen(false); }}
                             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${isCompleted
                                 ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -159,6 +195,7 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
                         </button>
                         {onEdit && (
                             <button
+                                type="button"
                                 onClick={() => { setDetailOpen(false); onEdit(task); }}
                                 className="px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium transition-colors"
                             >
