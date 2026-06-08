@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { loadSchedule, saveSchedule, loadTasks, loadExams } from '../lib/db';
 import Header from '../components/Header';
 import Modal from '../components/Modal';
@@ -6,6 +6,7 @@ import StatsCard from '../components/schedule/StatsCard';
 import DaySelector from '../components/schedule/DaySelector';
 import CourseCard from '../components/schedule/CourseCard';
 import LoadingOverlay from '../components/LoadingOverlay';
+import { usePageActionRegistration } from '../contexts/PageActionContext.js';
 import { useBriefLoading } from '../hooks/useBriefLoading';
 
 const initialScheduleData = {
@@ -202,7 +203,7 @@ export default function SchedulePage() {
         { label: 'Ujian Mendatang', value: String(upcomingExamsCount), icon: 'event_busy', iconColor: 'text-red-500/50' },
     ];
 
-    const handleOpenModal = () => {
+    const handleOpenModal = useCallback(() => {
         setEditingCourse(null);
         setFormData({
             name: '',
@@ -216,7 +217,16 @@ export default function SchedulePage() {
         });
         setFormError('');
         setIsModalOpen(true);
-    };
+    }, [selectedDay]);
+
+    const pageAction = useMemo(() => ({
+        label: 'Tambah Kelas',
+        shortLabel: 'Tambah',
+        icon: 'add',
+        onClick: handleOpenModal,
+    }), [handleOpenModal]);
+
+    usePageActionRegistration(pageAction);
 
     const handleEditCourse = (course) => {
         setEditingCourse(course);
@@ -315,15 +325,6 @@ export default function SchedulePage() {
             />
 
             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8 scroll-smooth pb-20 lg:pb-8">
-                {/* Mobile Add Button - scrolls with content */}
-                <button
-                    onClick={handleOpenModal}
-                    className="lg:hidden w-full flex items-center justify-center gap-2 px-4 h-10 rounded-lg bg-primary hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all"
-                >
-                    <span className="material-symbols-outlined text-[18px]">add</span>
-                    <span className="text-sm font-medium">Tambah Kelas</span>
-                </button>
-
                 {(loadError || saveStatus === 'error') && (
                     <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
                         ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'

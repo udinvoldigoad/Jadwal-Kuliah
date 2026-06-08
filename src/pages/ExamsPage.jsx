@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Header from '../components/Header';
 import Modal from '../components/Modal';
 import CountdownHero from '../components/exams/CountdownHero';
 import ExamRow from '../components/exams/ExamRow';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { loadExams, saveExams, loadSchedule } from '../lib/db';
+import { usePageActionRegistration } from '../contexts/PageActionContext.js';
 import { useBriefLoading } from '../hooks/useBriefLoading';
 
 // Helper to get day name in Indonesian
@@ -180,7 +181,7 @@ export default function ExamsPage() {
         return () => clearInterval(timer);
     }, [nextExam]);
 
-    const handleOpenModal = () => {
+    const handleOpenModal = useCallback(() => {
         setEditingExam(null);
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -195,7 +196,16 @@ export default function ExamsPage() {
         });
         setFormError('');
         setIsModalOpen(true);
-    };
+    }, []);
+
+    const pageAction = useMemo(() => ({
+        label: 'Tambah Ujian',
+        shortLabel: 'Tambah',
+        icon: 'add',
+        onClick: handleOpenModal,
+    }), [handleOpenModal]);
+
+    usePageActionRegistration(pageAction);
 
     const handleEditExam = (exam) => {
         setEditingExam(exam);
@@ -324,15 +334,6 @@ export default function ExamsPage() {
             />
 
             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 pb-20 lg:pb-8">
-                {/* Mobile Add Button - scrolls with content */}
-                <button
-                    onClick={handleOpenModal}
-                    className="lg:hidden w-full flex items-center justify-center gap-2 px-4 h-10 rounded-lg bg-primary hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all"
-                >
-                    <span className="material-symbols-outlined text-[18px]">add</span>
-                    <span className="text-sm font-medium">Tambah Ujian</span>
-                </button>
-
                 {(loadError || saveStatus === 'error') && (
                     <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
                         ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'

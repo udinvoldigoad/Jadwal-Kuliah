@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Modal from '../components/Modal';
 import TaskRow from '../components/assignments/TaskRow';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { loadTasks, saveTasks, loadSchedule } from '../lib/db';
+import { usePageActionRegistration } from '../contexts/PageActionContext.js';
 import { useBriefLoading } from '../hooks/useBriefLoading';
 
 // Initial task data - empty for fresh start
@@ -49,6 +50,9 @@ const normalizeAndPruneCompletedTasks = (taskList, now = Date.now()) => {
 
 export default function AssignmentsPage() {
     const [searchQuery, setSearchQuery] = useState('');
+    const [filterCourse, setFilterCourse] = useState('');
+    const [filterDeadline, setFilterDeadline] = useState('');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [tasks, setTasks] = useState(initialTasks);
     const [courseList, setCourseList] = useState([]);
     const [loadError, setLoadError] = useState('');
@@ -143,14 +147,30 @@ export default function AssignmentsPage() {
         setOpenTaskMenuId((currentTaskId) => currentTaskId === taskId ? null : taskId);
     };
 
+    const filterCourseOptions = useMemo(() => {
+        const courseNames = new Set(courseList);
+        tasks.forEach((task) => {
+            if (task.course) courseNames.add(task.course);
+        });
+        return Array.from(courseNames).sort();
+    }, [courseList, tasks]);
+
+    const activeFilterCount = [filterCourse, filterDeadline].filter(Boolean).length;
+
     const filterTasks = (taskList) => {
-        if (!searchQuery.trim()) return taskList;
-        const query = searchQuery.toLowerCase();
-        return taskList.filter(task =>
-            (task.title || '').toLowerCase().includes(query) ||
-            (task.description || '').toLowerCase().includes(query) ||
-            (task.course || '').toLowerCase().includes(query)
-        );
+        const query = searchQuery.trim().toLowerCase();
+        return taskList.filter((task) => {
+            const matchesSearch = !query ||
+                (task.title || '').toLowerCase().includes(query) ||
+                (task.description || '').toLowerCase().includes(query) ||
+                (task.course || '').toLowerCase().includes(query);
+            const matchesCourse = !filterCourse || task.course === filterCourse;
+            const dueDateTimestamp = Number(task.dueDateTimestamp);
+            const dueDateValue = Number.isFinite(dueDateTimestamp) ? formatDateInput(dueDateTimestamp) : '';
+            const matchesDeadline = !filterDeadline || dueDateValue === filterDeadline;
+
+            return matchesSearch && matchesCourse && matchesDeadline;
+        });
     };
 
     const upcomingTasks = filterTasks(
@@ -171,7 +191,7 @@ export default function AssignmentsPage() {
         dueDate: '',
     });
 
-    const handleOpenModal = () => {
+    const handleOpenModal = useCallback(() => {
         setEditingTask(null);
         setFormData({
             title: '',
@@ -181,7 +201,16 @@ export default function AssignmentsPage() {
         });
         setFormError('');
         setIsModalOpen(true);
-    };
+    }, []);
+
+    const pageAction = useMemo(() => ({
+        label: 'Tambah Tugas',
+        shortLabel: 'Tambah',
+        icon: 'add',
+        onClick: handleOpenModal,
+    }), [handleOpenModal]);
+
+    usePageActionRegistration(pageAction);
 
     const handleEditTask = (task) => {
         setOpenTaskMenuId(null);
@@ -295,6 +324,19 @@ export default function AssignmentsPage() {
                             />
                         </div>
                         <button
+                            type="button"
+                            onClick={() => setIsFilterOpen(true)}
+                            className="relative flex items-center justify-center gap-2 px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-[20px]">filter_alt</span>
+                            <span className="text-sm font-medium">Filter</span>
+                            {activeFilterCount > 0 && (
+                                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                        </button>
+                        <button
                             onClick={handleOpenModal}
                             className="flex items-center justify-center gap-2 px-5 h-10 rounded-lg bg-primary hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all"
                         >
@@ -307,7 +349,7 @@ export default function AssignmentsPage() {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-20 lg:pb-8 space-y-4 md:space-y-6">
-                {/* Mobile Search bar and Add button - scrolls with content */}
+                {/* Mobile Search bar and Filter button */}
                 <div className="lg:hidden flex items-center gap-2">
                     <div className="relative group flex-1">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors text-[18px]">search</span>
@@ -320,11 +362,17 @@ export default function AssignmentsPage() {
                         />
                     </div>
                     <button
-                        onClick={handleOpenModal}
-                        className="flex items-center justify-center gap-1.5 px-3 h-9 rounded-lg bg-primary hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all flex-shrink-0"
+                        type="button"
+                        onClick={() => setIsFilterOpen(true)}
+                        className="relative flex items-center justify-center gap-1.5 px-3 h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-surface-light dark:bg-surface-dark text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex-shrink-0"
                     >
-                        <span className="material-symbols-outlined text-[18px]">add</span>
-                        <span className="text-xs font-medium">Tambah</span>
+                        <span className="material-symbols-outlined text-[18px]">filter_alt</span>
+                        <span className="text-xs font-medium">Filter</span>
+                        {activeFilterCount > 0 && (
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-white">
+                                {activeFilterCount}
+                            </span>
+                        )}
                     </button>
                 </div>
 
@@ -499,6 +547,58 @@ export default function AssignmentsPage() {
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            <Modal isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} title="Filter Tugas">
+                <div className="flex flex-col gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Mata Kuliah
+                        </label>
+                        <select
+                            value={filterCourse}
+                            onChange={(event) => setFilterCourse(event.target.value)}
+                            className="w-full px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                        >
+                            <option value="">Semua Mata Kuliah</option>
+                            {filterCourseOptions.map((course) => (
+                                <option key={course} value={course}>{course}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Tanggal Deadline
+                        </label>
+                        <input
+                            type="date"
+                            value={filterDeadline}
+                            onChange={(event) => setFilterDeadline(event.target.value)}
+                            className="w-full px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                        />
+                    </div>
+
+                    <div className="flex gap-3 mt-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setFilterCourse('');
+                                setFilterDeadline('');
+                            }}
+                            className="flex-1 px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium text-sm"
+                        >
+                            Reset Filter
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsFilterOpen(false)}
+                            className="flex-1 px-4 h-10 rounded-lg bg-primary hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all font-medium text-sm"
+                        >
+                            Terapkan
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </>
     );

@@ -6,6 +6,8 @@ import Layout from './components/Layout';
 import SchedulePage from './pages/SchedulePage';
 import AssignmentsPage from './pages/AssignmentsPage';
 import ExamsPage from './pages/ExamsPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -26,6 +28,8 @@ function AppContent() {
         <Route path="/" element={<SchedulePage />} />
         <Route path="/assignments" element={<AssignmentsPage />} />
         <Route path="/exams" element={<ExamsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </Layout>
   );
