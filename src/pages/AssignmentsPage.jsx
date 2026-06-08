@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Modal from '../components/Modal';
 import TaskRow from '../components/assignments/TaskRow';
+import LoadingOverlay from '../components/LoadingOverlay';
 import { loadTasks, saveTasks, loadSchedule } from '../lib/db';
+import { useBriefLoading } from '../hooks/useBriefLoading';
 
 // Initial task data - empty for fresh start
 const initialTasks = [];
@@ -29,11 +31,11 @@ export default function AssignmentsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [tasks, setTasks] = useState(initialTasks);
     const [courseList, setCourseList] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
     const [saveStatus, setSaveStatus] = useState('idle');
     const [formError, setFormError] = useState('');
     const [openTaskMenuId, setOpenTaskMenuId] = useState(null);
+    const actionLoading = useBriefLoading();
     const isInitialLoad = useRef(true);
 
     // Load data from Supabase on mount
@@ -56,7 +58,6 @@ export default function AssignmentsPage() {
                 console.error('Error loading tasks:', err);
                 setLoadError('Gagal memuat tugas. Periksa koneksi lalu muat ulang halaman.');
             } finally {
-                setIsLoading(false);
                 isInitialLoad.current = false;
             }
         }
@@ -113,6 +114,7 @@ export default function AssignmentsPage() {
 
     const handleToggle = (taskId) => {
         setOpenTaskMenuId(null);
+        actionLoading.show('Memperbarui tugas...');
         setTasks(prevTasks =>
             prevTasks.map(task => {
                 if (task.id === taskId) {
@@ -131,6 +133,7 @@ export default function AssignmentsPage() {
     const handleDeleteTask = (taskId) => {
         setOpenTaskMenuId(null);
         if (window.confirm('Yakin ingin menghapus tugas ini?')) {
+            actionLoading.show('Menghapus tugas...');
             setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
         }
     };
@@ -227,6 +230,7 @@ export default function AssignmentsPage() {
 
         if (editingTask) {
             // Update existing task
+            actionLoading.show('Memperbarui tugas...');
             setTasks(prev => prev.map(task =>
                 task.id === editingTask.id
                     ? {
@@ -241,6 +245,7 @@ export default function AssignmentsPage() {
             ));
         } else {
             // Add new task
+            actionLoading.show('Menambahkan tugas...');
             const newTask = {
                 id: createId(),
                 title,
@@ -264,6 +269,12 @@ export default function AssignmentsPage() {
 
     return (
         <>
+            <LoadingOverlay
+                visible={Boolean(actionLoading.message) || saveStatus === 'saving'}
+                title={actionLoading.message || 'Menyimpan tugas...'}
+                description="Perubahan sedang disimpan ke cloud."
+            />
+
             {/* Header - Desktop Only */}
             <header className="hidden lg:block flex-shrink-0 bg-surface-light/70 dark:bg-surface-dark/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 z-10 sticky top-0">
                 <div className="px-6 py-4 flex items-center justify-between gap-4">
@@ -316,12 +327,12 @@ export default function AssignmentsPage() {
                     </button>
                 </div>
 
-                {(isLoading || loadError || saveStatus === 'saving' || saveStatus === 'error') && (
+                {(loadError || saveStatus === 'error') && (
                     <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
                         ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
                         : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
                         }`}>
-                        {isLoading ? 'Memuat data tugas...' : loadError || 'Menyimpan perubahan tugas...'}
+                        {loadError || 'Gagal menyimpan perubahan tugas.'}
                     </div>
                 )}
 

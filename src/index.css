@@ -116,3 +116,43 @@ body {
 .zoom-in-95 {
   animation: zoomIn 0.2s ease-out forwards;
 }
+
+@keyframes loadingBar {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes loadingDot {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.35;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.loading-bar {
+  animation: loadingBar 1.2s ease-in-out infinite;
+}
+
+.loading-dot {
+  animation: loadingDot 1s ease-in-out infinite;
+}
+
+.animation-delay-150 {
+  animation-delay: 150ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}

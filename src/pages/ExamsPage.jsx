@@ -3,7 +3,9 @@ import Header from '../components/Header';
 import Modal from '../components/Modal';
 import CountdownHero from '../components/exams/CountdownHero';
 import ExamRow from '../components/exams/ExamRow';
+import LoadingOverlay from '../components/LoadingOverlay';
 import { loadExams, saveExams, loadSchedule } from '../lib/db';
+import { useBriefLoading } from '../hooks/useBriefLoading';
 
 // Helper to get day name in Indonesian
 const getDayName = (date) => {
@@ -71,7 +73,6 @@ const parseExams = (savedExams) => {
 export default function ExamsPage() {
     const [exams, setExams] = useState(initialExams);
     const [courseList, setCourseList] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
     const [saveStatus, setSaveStatus] = useState('idle');
     const isInitialLoad = useRef(true);
@@ -80,6 +81,7 @@ export default function ExamsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExam, setEditingExam] = useState(null);
     const [formError, setFormError] = useState('');
+    const actionLoading = useBriefLoading();
     const [formData, setFormData] = useState({
         name: '',
         type: 'UTS',
@@ -110,7 +112,6 @@ export default function ExamsPage() {
                 console.error('Error loading exams:', err);
                 setLoadError('Gagal memuat ujian. Periksa koneksi lalu muat ulang halaman.');
             } finally {
-                setIsLoading(false);
                 isInitialLoad.current = false;
             }
         }
@@ -244,6 +245,7 @@ export default function ExamsPage() {
 
         if (editingExam) {
             // Update existing exam
+            actionLoading.show('Memperbarui ujian...');
             setExams(prev => prev.map(exam =>
                 exam.id === editingExam.id
                     ? {
@@ -260,6 +262,7 @@ export default function ExamsPage() {
             ));
         } else {
             // Add new exam
+            actionLoading.show('Menambahkan ujian...');
             const newExam = {
                 id: createId(),
                 name,
@@ -281,6 +284,7 @@ export default function ExamsPage() {
 
     const handleDeleteExam = (examId) => {
         if (window.confirm('Yakin ingin menghapus jadwal ujian ini?')) {
+            actionLoading.show('Menghapus ujian...');
             setExams(prev => prev.filter(exam => exam.id !== examId));
         }
     };
@@ -305,6 +309,12 @@ export default function ExamsPage() {
 
     return (
         <>
+            <LoadingOverlay
+                visible={Boolean(actionLoading.message) || saveStatus === 'saving'}
+                title={actionLoading.message || 'Menyimpan ujian...'}
+                description="Perubahan sedang disimpan ke cloud."
+            />
+
             <Header
                 title="Jadwal Ujian"
                 subtitle="Kelola dan persiapkan ujianmu"
@@ -323,12 +333,12 @@ export default function ExamsPage() {
                     <span className="text-sm font-medium">Tambah Ujian</span>
                 </button>
 
-                {(isLoading || loadError || saveStatus === 'saving' || saveStatus === 'error') && (
+                {(loadError || saveStatus === 'error') && (
                     <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
                         ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
                         : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
                         }`}>
-                        {isLoading ? 'Memuat data ujian...' : loadError || 'Menyimpan perubahan ujian...'}
+                        {loadError || 'Gagal menyimpan perubahan ujian.'}
                     </div>
                 )}
 

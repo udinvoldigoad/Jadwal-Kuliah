@@ -5,6 +5,8 @@ import Modal from '../components/Modal';
 import StatsCard from '../components/schedule/StatsCard';
 import DaySelector from '../components/schedule/DaySelector';
 import CourseCard from '../components/schedule/CourseCard';
+import LoadingOverlay from '../components/LoadingOverlay';
+import { useBriefLoading } from '../hooks/useBriefLoading';
 
 const initialScheduleData = {
     mon: [],
@@ -106,10 +108,10 @@ export default function SchedulePage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCourse, setEditingCourse] = useState(null);
     const [scheduleData, setScheduleData] = useState(initialScheduleData);
-    const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
     const [saveStatus, setSaveStatus] = useState('idle');
     const [formError, setFormError] = useState('');
+    const actionLoading = useBriefLoading();
     const [tasksDeadlineCount, setTasksDeadlineCount] = useState(0);
     const [upcomingExamsCount, setUpcomingExamsCount] = useState(0);
     const isInitialLoad = useRef(true);
@@ -155,7 +157,6 @@ export default function SchedulePage() {
                 console.error('Error loading data:', err);
                 setLoadError('Gagal memuat data. Periksa koneksi lalu muat ulang halaman.');
             } finally {
-                setIsLoading(false);
                 isInitialLoad.current = false;
             }
         }
@@ -277,6 +278,7 @@ export default function SchedulePage() {
             return next;
         });
 
+        actionLoading.show(editingCourse ? 'Memperbarui kelas...' : 'Menambahkan kelas...');
         setSelectedDay(targetDay);
         setIsModalOpen(false);
         setEditingCourse(null);
@@ -285,6 +287,7 @@ export default function SchedulePage() {
 
     const handleDeleteCourse = (courseId) => {
         if (window.confirm('Yakin ingin menghapus kelas ini?')) {
+            actionLoading.show('Menghapus kelas...');
             setScheduleData(prev => ({
                 ...prev,
                 [selectedDay]: prev[selectedDay].filter(course => course.id !== courseId),
@@ -294,6 +297,12 @@ export default function SchedulePage() {
 
     return (
         <>
+            <LoadingOverlay
+                visible={Boolean(actionLoading.message) || saveStatus === 'saving'}
+                title={actionLoading.message || 'Menyimpan jadwal...'}
+                description="Perubahan sedang disimpan ke cloud."
+            />
+
             <Header
                 title="Jadwal Harian"
                 subtitle={weekSubtitle}
@@ -315,12 +324,12 @@ export default function SchedulePage() {
                     <span className="text-sm font-medium">Tambah Kelas</span>
                 </button>
 
-                {(isLoading || loadError || saveStatus === 'saving' || saveStatus === 'error') && (
+                {(loadError || saveStatus === 'error') && (
                     <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
                         ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
                         : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
                         }`}>
-                        {isLoading ? 'Memuat data jadwal...' : loadError || 'Menyimpan perubahan jadwal...'}
+                        {loadError || 'Gagal menyimpan perubahan jadwal.'}
                     </div>
                 )}
 
