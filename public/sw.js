@@ -7,6 +7,64 @@
 // 1. Push event (menerima notifikasi dari server)
 // 2. Notification click (membuka/fokus website saat notifikasi diklik)
 
+const DB_NAME = 'jadwal-notifications';
+const DB_VERSION = 1;
+const STORE_NAME = 'notifications';
+
+function createNotificationRecord(data) {
+    const timestamp = Number(data.timestamp) || Date.now();
+    return {
+        id: data.id || data.notificationId || `${timestamp}-${Math.random().toString(36).slice(2)}`,
+        title: data.title || 'Jadwal Kuliah',
+        body: data.body || 'Ada pembaruan dari Jadwal Kuliah!',
+        url: data.url || '/',
+        icon: data.iconName || 'notifications',
+        timestamp,
+    };
+}
+
+function openNotificationDb() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                store.createIndex('timestamp', 'timestamp');
+            }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function saveNotificationRecord(notification) {
+    try {
+        const db = await openNotificationDb();
+        await new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            transaction.objectStore(STORE_NAME).put(notification);
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+        });
+        db.close();
+    } catch (error) {
+        console.error('[SW] Failed to store notification:', error);
+    }
+}
+
+async function sendNotificationToClients(notification) {
+    const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    clientList.forEach((client) => {
+        client.postMessage({
+            type: 'JADWAL_NOTIFICATION_RECEIVED',
+            notification,
+        });
+    });
+}
+
 // Handle push event dari server
 self.addEventListener('push', (event) => {
     if (!event.data) return;
@@ -22,14 +80,16 @@ self.addEventListener('push', (event) => {
         };
     }
 
+    const notificationRecord = createNotificationRecord(data);
     const options = {
-        body: data.body || 'Ada pembaruan dari Jadwal Kuliah!',
+        body: notificationRecord.body,
         icon: data.icon || '/ITERA.png',
         badge: data.badge || '/ITERA.png',
         tag: data.tag || 'jadwal-notification',
         data: {
-            url: data.url || '/',
-            timestamp: data.timestamp || Date.now(),
+            id: notificationRecord.id,
+            url: notificationRecord.url,
+            timestamp: notificationRecord.timestamp,
         },
         // Vibration pattern in milliseconds
         vibrate: [100, 50, 100],
@@ -49,7 +109,11 @@ self.addEventListener('push', (event) => {
     };
 
     event.waitUntil(
-        self.registration.showNotification(data.title || 'Jadwal Kuliah', options)
+        Promise.all([
+            saveNotificationRecord(notificationRecord),
+            sendNotificationToClients(notificationRecord),
+            self.registration.showNotification(notificationRecord.title, options),
+        ])
     );
 });
 
