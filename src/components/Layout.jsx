@@ -109,6 +109,14 @@ function LayoutContent({ children }) {
             <div ref={moreMenuRef} className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-3 pt-5 pointer-events-none">
                 <div
                     aria-hidden={!isMoreMenuOpen}
+                    className={`fixed inset-0 bg-slate-950/10 backdrop-blur-[3px] transition-opacity duration-200 dark:bg-slate-950/25 ${isMoreMenuOpen
+                        ? 'pointer-events-auto opacity-100'
+                        : 'pointer-events-none opacity-0'
+                        }`}
+                />
+
+                <div
+                    aria-hidden={!isMoreMenuOpen}
                     className={`absolute left-4 right-4 bottom-[86px] origin-bottom rounded-2xl border border-slate-200/80 bg-slate-50/90 p-2 text-slate-700 shadow-2xl shadow-slate-900/10 backdrop-blur-xl transition-all duration-200 ease-out dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100 dark:shadow-slate-950/35 ${isMoreMenuOpen
                         ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
                         : 'pointer-events-none translate-y-3 scale-95 opacity-0'
