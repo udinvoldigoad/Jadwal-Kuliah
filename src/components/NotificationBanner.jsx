@@ -15,6 +15,7 @@ export default function NotificationBanner() {
     const { user } = useAuth();
     const [visible, setVisible] = useState(false);
     const [status, setStatus] = useState('idle'); // idle | loading | denied | error
+    const [errorMessage, setErrorMessage] = useState('');
     const [dismissed, setDismissed] = useState(false);
 
     useEffect(() => {
@@ -57,8 +58,10 @@ export default function NotificationBanner() {
         if (result.success) {
             setVisible(false);
         } else if (result.error === 'denied') {
+            setErrorMessage('');
             setStatus('denied');
         } else {
+            setErrorMessage(result.error || 'Terjadi kesalahan. Coba lagi nanti atau aktifkan dari menu Pengaturan.');
             setStatus('error');
         }
     };
@@ -119,7 +122,7 @@ export default function NotificationBanner() {
                                 Gagal Mengaktifkan Notifikasi
                             </h4>
                             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                                Terjadi kesalahan. Coba lagi nanti atau aktifkan dari menu Pengaturan.
+                                {errorMessage || 'Terjadi kesalahan. Coba lagi nanti atau aktifkan dari menu Pengaturan.'}
                             </p>
                             <button
                                 onClick={() => setVisible(false)}

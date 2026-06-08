@@ -22,24 +22,31 @@ export default function SettingsModal({ isOpen, onClose }) {
     const [pushSubscribed, setPushSubscribed] = useState(false);
     const [pushLoading, setPushLoading] = useState(false);
     const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
+    const [pushError, setPushError] = useState('');
 
     // Check push subscription status when modal opens
     useEffect(() => {
         if (isOpen && pushSupported) {
             checkIsSubscribed().then(setPushSubscribed);
             setPushPermission(getPermissionStatus());
+            setPushError('');
         }
     }, [isOpen, pushSupported]);
 
     const handleTogglePush = async () => {
         if (!user) return;
         setPushLoading(true);
+        setPushError('');
 
         try {
             if (pushSubscribed) {
                 // Unsubscribe
-                await unsubscribe();
-                setPushSubscribed(false);
+                const result = await unsubscribe();
+                if (result.success) {
+                    setPushSubscribed(false);
+                } else {
+                    setPushError(result.error || 'Gagal menonaktifkan notifikasi.');
+                }
             } else {
                 // Subscribe
                 const result = await requestPermissionAndSubscribe(user.id);
@@ -48,10 +55,14 @@ export default function SettingsModal({ isOpen, onClose }) {
                     setPushPermission('granted');
                 } else if (result.error === 'denied') {
                     setPushPermission('denied');
+                    setPushError('Izin notifikasi diblokir di browser.');
+                } else {
+                    setPushError(result.error || 'Gagal mengaktifkan notifikasi.');
                 }
             }
         } catch (err) {
             console.error('Toggle push failed:', err);
+            setPushError(err.message || 'Gagal mengubah status notifikasi.');
         } finally {
             setPushLoading(false);
         }
@@ -141,6 +152,12 @@ export default function SettingsModal({ isOpen, onClose }) {
                         </span>
                     ) : null}
                 </div>
+
+                {pushError && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                        {pushError}
+                    </div>
+                )}
 
                 {/* Reset Data Section */}
                 <div className="border-t border-slate-200 dark:border-slate-700 pt-4">

@@ -31,10 +31,27 @@ function urlBase64ToUint8Array(base64String) {
  */
 export function isPushSupported() {
     return (
+        window.isSecureContext &&
         'serviceWorker' in navigator &&
         'PushManager' in window &&
         'Notification' in window
     );
+}
+
+export function getPushSupportMessage() {
+    if (!window.isSecureContext) {
+        return 'Push notification hanya bisa aktif di HTTPS atau localhost.';
+    }
+    if (!('serviceWorker' in navigator)) {
+        return 'Browser tidak mendukung service worker.';
+    }
+    if (!('PushManager' in window)) {
+        return 'Browser tidak mendukung push notification.';
+    }
+    if (!('Notification' in window)) {
+        return 'Browser tidak mendukung notification API.';
+    }
+    return '';
 }
 
 /**
@@ -83,7 +100,7 @@ export async function requestPermissionAndSubscribe(userId) {
     if (!isPushSupported()) {
         return {
             success: false,
-            error: 'Browser tidak mendukung push notification',
+            error: getPushSupportMessage() || 'Browser tidak mendukung push notification',
         };
     }
 
@@ -116,6 +133,11 @@ export async function requestPermissionAndSubscribe(userId) {
         const registration = await registerServiceWorker();
 
         // Step 3: Subscribe to push
+        const existingSubscription = await registration.pushManager.getSubscription();
+        if (existingSubscription) {
+            await existingSubscription.unsubscribe();
+        }
+
         const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
