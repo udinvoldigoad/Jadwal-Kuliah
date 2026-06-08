@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../contexts/AuthContext';
 import { usePageActionRegistration } from '../contexts/PageActionContext.js';
 import { useTheme } from '../contexts/ThemeContext';
@@ -17,7 +16,6 @@ export default function SettingsPage() {
     const { user, signOut } = useAuth();
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [isConfirmed, setIsConfirmed] = useState(false);
-    const [pageLoading, setPageLoading] = useState('');
     const [pageError, setPageError] = useState('');
 
     const [pushSupported] = useState(() => isPushSupported());
@@ -78,7 +76,6 @@ export default function SettingsPage() {
     };
 
     const handleLogout = async () => {
-        setPageLoading('Keluar dari akun...');
         setPageError('');
         try {
             await signOut();
@@ -86,27 +83,23 @@ export default function SettingsPage() {
         } catch (err) {
             console.error('Logout failed:', err);
             setPageError('Gagal keluar dari akun. Coba lagi.');
-            setPageLoading('');
         }
     };
 
     const handleResetData = async () => {
         if (!isConfirmed) return;
 
-        setPageLoading('Menghapus semua data...');
         setPageError('');
         try {
             const result = await resetAllData();
             if (result?.success === false) {
                 setPageError(result.error || 'Gagal menghapus data.');
-                setPageLoading('');
                 return;
             }
             window.location.reload();
         } catch (err) {
             console.error('Reset failed:', err);
             setPageError('Gagal menghapus data. Coba lagi.');
-            setPageLoading('');
         }
     };
 
@@ -120,12 +113,6 @@ export default function SettingsPage() {
 
     return (
         <>
-            <LoadingOverlay
-                visible={Boolean(pageLoading) || pushLoading}
-                title={pageLoading || (pushSubscribed ? 'Menonaktifkan notifikasi...' : 'Mengaktifkan notifikasi...')}
-                description="Tunggu sebentar, permintaan sedang dijalankan."
-            />
-
             <header className="hidden lg:block flex-shrink-0 bg-surface-light/70 dark:bg-surface-dark/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 z-10 sticky top-0">
                 <div className="px-6 py-4">
                     <h2 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight">Pengaturan</h2>
@@ -133,7 +120,7 @@ export default function SettingsPage() {
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-28 lg:pb-8 space-y-4 md:space-y-6">
+            <div className="page-content-animated flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-28 lg:pb-8 space-y-4 md:space-y-6">
                 {(pageError || pushError) && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
                         {pageError || pushError}

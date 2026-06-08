@@ -37,7 +37,7 @@ export default function ProfilePage() {
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-28 lg:pb-8">
+            <div className="page-content-animated flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-28 lg:pb-8">
                 <section className="rounded-xl border border-slate-200 bg-surface-light dark:border-slate-700 dark:bg-surface-dark">
                     <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
                         <h3 className="font-bold text-slate-900 dark:text-white">Profil</h3>

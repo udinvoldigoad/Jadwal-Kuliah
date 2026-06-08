@@ -3,10 +3,8 @@ import Header from '../components/Header';
 import Modal from '../components/Modal';
 import CountdownHero from '../components/exams/CountdownHero';
 import ExamRow from '../components/exams/ExamRow';
-import LoadingOverlay from '../components/LoadingOverlay';
 import { loadExams, saveExams, loadSchedule } from '../lib/db';
 import { usePageActionRegistration } from '../contexts/PageActionContext.js';
-import { useBriefLoading } from '../hooks/useBriefLoading';
 
 // Helper to get day name in Indonesian
 const getDayName = (date) => {
@@ -76,13 +74,13 @@ export default function ExamsPage() {
     const [courseList, setCourseList] = useState([]);
     const [loadError, setLoadError] = useState('');
     const [saveStatus, setSaveStatus] = useState('idle');
+    const [dataReady, setDataReady] = useState(false);
     const isInitialLoad = useRef(true);
     const [nextExam, setNextExam] = useState(null);
     const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExam, setEditingExam] = useState(null);
     const [formError, setFormError] = useState('');
-    const actionLoading = useBriefLoading();
     const [formData, setFormData] = useState({
         name: '',
         type: 'UTS',
@@ -114,6 +112,7 @@ export default function ExamsPage() {
                 setLoadError('Gagal memuat ujian. Periksa koneksi lalu muat ulang halaman.');
             } finally {
                 isInitialLoad.current = false;
+                setDataReady(true);
             }
         }
         fetchData();
@@ -255,7 +254,6 @@ export default function ExamsPage() {
 
         if (editingExam) {
             // Update existing exam
-            actionLoading.show('Memperbarui ujian...');
             setExams(prev => prev.map(exam =>
                 exam.id === editingExam.id
                     ? {
@@ -272,7 +270,6 @@ export default function ExamsPage() {
             ));
         } else {
             // Add new exam
-            actionLoading.show('Menambahkan ujian...');
             const newExam = {
                 id: createId(),
                 name,
@@ -294,7 +291,6 @@ export default function ExamsPage() {
 
     const handleDeleteExam = (examId) => {
         if (window.confirm('Yakin ingin menghapus jadwal ujian ini?')) {
-            actionLoading.show('Menghapus ujian...');
             setExams(prev => prev.filter(exam => exam.id !== examId));
         }
     };
@@ -319,12 +315,6 @@ export default function ExamsPage() {
 
     return (
         <>
-            <LoadingOverlay
-                visible={Boolean(actionLoading.message) || saveStatus === 'saving'}
-                title={actionLoading.message || 'Menyimpan ujian...'}
-                description="Perubahan sedang disimpan ke cloud."
-            />
-
             <Header
                 title="Jadwal Ujian"
                 subtitle="Kelola dan persiapkan ujianmu"
@@ -333,7 +323,7 @@ export default function ExamsPage() {
                 onAction={handleOpenModal}
             />
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 pb-20 lg:pb-8">
+            <div className="page-content-animated flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 pb-20 lg:pb-8">
                 {(loadError || saveStatus === 'error') && (
                     <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
                         ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
@@ -370,7 +360,7 @@ export default function ExamsPage() {
                         </section>
                     ))}
 
-                    {examGroups.length === 0 && (
+                    {examGroups.length === 0 && dataReady && (
                         <div className="text-center py-12 text-slate-400">
                             <span className="material-symbols-outlined text-5xl mb-2">event_busy</span>
                             <p>Belum ada jadwal ujian</p>

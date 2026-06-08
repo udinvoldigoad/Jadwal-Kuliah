@@ -1,6 +1,6 @@
 export default function CountdownHero({ exam, timeLeft }) {
     return (
-        <div className="bg-gradient-to-br from-primary to-blue-700 rounded-xl p-6 md:p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
+        <div className="component-float-in bg-gradient-to-br from-primary to-blue-700 rounded-xl p-6 md:p-8 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
             {/* Background pattern */}
             <div className="absolute inset-0 opacity-10">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2"></div>

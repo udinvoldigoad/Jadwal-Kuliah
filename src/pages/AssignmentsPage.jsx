@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Modal from '../components/Modal';
 import TaskRow from '../components/assignments/TaskRow';
-import LoadingOverlay from '../components/LoadingOverlay';
 import { loadTasks, saveTasks, loadSchedule } from '../lib/db';
 import { usePageActionRegistration } from '../contexts/PageActionContext.js';
-import { useBriefLoading } from '../hooks/useBriefLoading';
 
 // Initial task data - empty for fresh start
 const initialTasks = [];
@@ -58,8 +56,8 @@ export default function AssignmentsPage() {
     const [loadError, setLoadError] = useState('');
     const [saveStatus, setSaveStatus] = useState('idle');
     const [formError, setFormError] = useState('');
+    const [dataReady, setDataReady] = useState(false);
     const [openTaskMenuId, setOpenTaskMenuId] = useState(null);
-    const actionLoading = useBriefLoading();
     const isInitialLoad = useRef(true);
 
     // Load data from Supabase on mount
@@ -85,6 +83,7 @@ export default function AssignmentsPage() {
                 setLoadError('Gagal memuat tugas. Periksa koneksi lalu muat ulang halaman.');
             } finally {
                 isInitialLoad.current = false;
+                setDataReady(true);
             }
         }
         fetchData();
@@ -119,7 +118,6 @@ export default function AssignmentsPage() {
 
     const handleToggle = (taskId) => {
         setOpenTaskMenuId(null);
-        actionLoading.show('Memperbarui tugas...');
         setTasks(prevTasks =>
             prevTasks.map(task => {
                 if (task.id === taskId) {
@@ -138,7 +136,6 @@ export default function AssignmentsPage() {
     const handleDeleteTask = (taskId) => {
         setOpenTaskMenuId(null);
         if (window.confirm('Yakin ingin menghapus tugas ini?')) {
-            actionLoading.show('Menghapus tugas...');
             setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
         }
     };
@@ -260,7 +257,6 @@ export default function AssignmentsPage() {
 
         if (editingTask) {
             // Update existing task
-            actionLoading.show('Memperbarui tugas...');
             setTasks(prev => prev.map(task =>
                 task.id === editingTask.id
                     ? {
@@ -275,7 +271,6 @@ export default function AssignmentsPage() {
             ));
         } else {
             // Add new task
-            actionLoading.show('Menambahkan tugas...');
             const newTask = {
                 id: createId(),
                 title,
@@ -299,12 +294,6 @@ export default function AssignmentsPage() {
 
     return (
         <>
-            <LoadingOverlay
-                visible={Boolean(actionLoading.message) || saveStatus === 'saving'}
-                title={actionLoading.message || 'Menyimpan tugas...'}
-                description="Perubahan sedang disimpan ke cloud."
-            />
-
             {/* Header - Desktop Only */}
             <header className="hidden lg:block flex-shrink-0 bg-surface-light/70 dark:bg-surface-dark/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 z-10 sticky top-0">
                 <div className="px-6 py-4 flex items-center justify-between gap-4">
@@ -348,7 +337,7 @@ export default function AssignmentsPage() {
             </header>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-20 lg:pb-8 space-y-4 md:space-y-6">
+            <div className="page-content-animated flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-20 lg:pb-8 space-y-4 md:space-y-6">
                 {/* Mobile Search bar and Filter button */}
                 <div className="lg:hidden flex items-center gap-2">
                     <div className="relative group flex-1">
@@ -385,70 +374,76 @@ export default function AssignmentsPage() {
                     </div>
                 )}
 
-                {/* Upcoming Section */}
-                <section className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700">
-                    <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        <h3 className="font-bold text-slate-900 dark:text-white">Belum Selesai</h3>
-                        <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-mono-data px-2 py-0.5 rounded-full">
-                            {upcomingTasks.length}
-                        </span>
-                    </div>
-                    <div>
-                        {upcomingTasks.length > 0 ? (
-                            upcomingTasks.map(task => (
-                                <TaskRow
-                                    key={task.id}
-                                    task={task}
-                                    menuOpen={openTaskMenuId === task.id}
-                                    onToggleMenu={handleToggleTaskMenu}
-                                    onCloseMenu={() => setOpenTaskMenuId(null)}
-                                    onToggle={handleToggle}
-                                    onEdit={handleEditTask}
-                                    onDelete={handleDeleteTask}
-                                />
-                            ))
-                        ) : (
-                            <div className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
-                                <span className="material-symbols-outlined text-3xl mb-2">task_alt</span>
-                                <p className="text-sm">Tidak ada tugas yang belum selesai</p>
+                {dataReady ? (
+                    <div className="task-sections-fade space-y-4 md:space-y-6">
+                        {/* Upcoming Section */}
+                        <section className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                <h3 className="font-bold text-slate-900 dark:text-white">Belum Selesai</h3>
+                                <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-mono-data px-2 py-0.5 rounded-full">
+                                    {upcomingTasks.length}
+                                </span>
                             </div>
-                        )}
-                    </div>
-                </section>
+                            <div>
+                                {upcomingTasks.length > 0 ? (
+                                    upcomingTasks.map(task => (
+                                        <TaskRow
+                                            key={task.id}
+                                            task={task}
+                                            menuOpen={openTaskMenuId === task.id}
+                                            onToggleMenu={handleToggleTaskMenu}
+                                            onCloseMenu={() => setOpenTaskMenuId(null)}
+                                            onToggle={handleToggle}
+                                            onEdit={handleEditTask}
+                                            onDelete={handleDeleteTask}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
+                                        <span className="material-symbols-outlined text-3xl mb-2">task_alt</span>
+                                        <p className="text-sm">Tidak ada tugas yang belum selesai</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
 
-                {/* Completed Section */}
-                <section className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700">
-                    <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        <h3 className="font-bold text-slate-900 dark:text-white">Selesai</h3>
-                        <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-mono-data px-2 py-0.5 rounded-full">
-                            {completedTasks.length}
-                        </span>
-                        <span className="text-xs text-slate-400 dark:text-slate-500 ml-auto">Otomatis dihapus setelah 7 hari</span>
-                    </div>
-                    <div>
-                        {completedTasks.length > 0 ? (
-                            completedTasks.map(task => (
-                                <TaskRow
-                                    key={task.id}
-                                    task={task}
-                                    menuOpen={openTaskMenuId === task.id}
-                                    onToggleMenu={handleToggleTaskMenu}
-                                    onCloseMenu={() => setOpenTaskMenuId(null)}
-                                    onToggle={handleToggle}
-                                    onEdit={handleEditTask}
-                                    onDelete={handleDeleteTask}
-                                />
-                            ))
-                        ) : (
-                            <div className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
-                                <span className="material-symbols-outlined text-3xl mb-2">check_circle</span>
-                                <p className="text-sm">Belum ada tugas yang selesai</p>
+                        {/* Completed Section */}
+                        <section className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30">
+                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                <h3 className="font-bold text-slate-900 dark:text-white">Selesai</h3>
+                                <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-mono-data px-2 py-0.5 rounded-full">
+                                    {completedTasks.length}
+                                </span>
+                                <span className="text-xs text-slate-400 dark:text-slate-500 ml-auto">Otomatis dihapus setelah 7 hari</span>
                             </div>
-                        )}
+                            <div>
+                                {completedTasks.length > 0 ? (
+                                    completedTasks.map(task => (
+                                        <TaskRow
+                                            key={task.id}
+                                            task={task}
+                                            menuOpen={openTaskMenuId === task.id}
+                                            onToggleMenu={handleToggleTaskMenu}
+                                            onCloseMenu={() => setOpenTaskMenuId(null)}
+                                            onToggle={handleToggle}
+                                            onEdit={handleEditTask}
+                                            onDelete={handleDeleteTask}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
+                                        <span className="material-symbols-outlined text-3xl mb-2">check_circle</span>
+                                        <p className="text-sm">Belum ada tugas yang selesai</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
                     </div>
-                </section>
+                ) : (
+                    <div className="min-h-[280px]" aria-hidden="true" />
+                )}
             </div>
 
             {/* Add Task Modal */}

@@ -1,6 +1,6 @@
 export default function DaySelector({ days, selectedDay, onSelectDay }) {
     return (
-        <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-1 md:p-1.5 flex overflow-x-auto gap-1 md:gap-2 no-scrollbar">
+        <div className="component-float-in bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-1 md:p-1.5 flex overflow-x-auto gap-1 md:gap-2 no-scrollbar">
             {days.map((day) => (
                 <button
                     key={day.id}

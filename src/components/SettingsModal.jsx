@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
-import LoadingOverlay from './LoadingOverlay';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { resetAllData } from '../lib/db';
@@ -17,7 +16,6 @@ export default function SettingsModal({ isOpen, onClose }) {
     const { user, signOut } = useAuth();
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [isConfirmed, setIsConfirmed] = useState(false);
-    const [modalLoading, setModalLoading] = useState('');
 
     // Push notification state
     const [pushSupported] = useState(() => isPushSupported());
@@ -71,13 +69,11 @@ export default function SettingsModal({ isOpen, onClose }) {
     };
 
     const handleLogout = async () => {
-        setModalLoading('Keluar dari akun...');
         try {
             await signOut();
             window.location.reload();
         } catch (err) {
             console.error('Logout failed:', err);
-            setModalLoading('');
         }
     };
 
@@ -85,14 +81,12 @@ export default function SettingsModal({ isOpen, onClose }) {
         if (!isConfirmed) return;
 
         // Delete all data from Supabase
-        setModalLoading('Menghapus semua data...');
         try {
             await resetAllData();
             onClose();
             window.location.reload();
         } catch (err) {
             console.error('Reset failed:', err);
-            setModalLoading('');
         }
     };
 
@@ -104,13 +98,6 @@ export default function SettingsModal({ isOpen, onClose }) {
 
     return (
         <Modal isOpen={isOpen} onClose={handleClose} title="Pengaturan">
-            <LoadingOverlay
-                visible={Boolean(modalLoading) || pushLoading}
-                title={modalLoading || (pushSubscribed ? 'Menonaktifkan notifikasi...' : 'Mengaktifkan notifikasi...')}
-                description="Tunggu sebentar, permintaan sedang dijalankan."
-                level="modal"
-            />
-
             <div className="flex flex-col gap-4">
                 {/* Theme Toggle */}
                 <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">

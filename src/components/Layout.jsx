@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import LoadingOverlay from './LoadingOverlay';
 import MobileTopNavbar from './MobileTopNavbar';
 import NotificationBanner from './NotificationBanner';
 import NotificationProvider from './NotificationProvider';
@@ -12,7 +11,6 @@ import { usePageAction } from '../contexts/PageActionContext.js';
 
 function LayoutContent({ children }) {
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-    const [logoutLoading, setLogoutLoading] = useState('');
     const moreMenuRef = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
@@ -70,25 +68,17 @@ function LayoutContent({ children }) {
 
     const handleLogout = async () => {
         setIsMoreMenuOpen(false);
-        setLogoutLoading('Keluar dari akun...');
 
         try {
             await signOut();
             window.location.reload();
         } catch (err) {
             console.error('Logout failed:', err);
-            setLogoutLoading('');
         }
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 h-screen flex overflow-hidden">
-            <LoadingOverlay
-                visible={Boolean(logoutLoading)}
-                title={logoutLoading}
-                description="Tunggu sebentar, sesi sedang ditutup."
-            />
-
+        <div className="app-shell-enter bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 h-screen flex overflow-hidden">
             <Sidebar
                 onEditProfile={handleOpenProfile}
                 onOpenSettings={handleOpenSettings}
@@ -110,7 +100,9 @@ function LayoutContent({ children }) {
                     </div>
                 </div>
 
-                {children}
+                <div key={location.pathname} className="flex min-h-0 flex-1 flex-col page-transition-shell">
+                    {children}
+                </div>
             </main>
 
             {/* Mobile Bottom Navigation */}

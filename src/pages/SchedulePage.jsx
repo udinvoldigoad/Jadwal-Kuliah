@@ -5,9 +5,7 @@ import Modal from '../components/Modal';
 import StatsCard from '../components/schedule/StatsCard';
 import DaySelector from '../components/schedule/DaySelector';
 import CourseCard from '../components/schedule/CourseCard';
-import LoadingOverlay from '../components/LoadingOverlay';
 import { usePageActionRegistration } from '../contexts/PageActionContext.js';
-import { useBriefLoading } from '../hooks/useBriefLoading';
 
 const initialScheduleData = {
     mon: [],
@@ -112,7 +110,7 @@ export default function SchedulePage() {
     const [loadError, setLoadError] = useState('');
     const [saveStatus, setSaveStatus] = useState('idle');
     const [formError, setFormError] = useState('');
-    const actionLoading = useBriefLoading();
+    const [dataReady, setDataReady] = useState(false);
     const [tasksDeadlineCount, setTasksDeadlineCount] = useState(0);
     const [upcomingExamsCount, setUpcomingExamsCount] = useState(0);
     const isInitialLoad = useRef(true);
@@ -159,6 +157,7 @@ export default function SchedulePage() {
                 setLoadError('Gagal memuat data. Periksa koneksi lalu muat ulang halaman.');
             } finally {
                 isInitialLoad.current = false;
+                setDataReady(true);
             }
         }
         fetchData();
@@ -197,7 +196,7 @@ export default function SchedulePage() {
     const todayClasses = weekOffset === 0 && scheduleData[todayDayId] ? scheduleData[todayDayId].length : 0;
 
     const stats = [
-        { label: 'Total SKS', value: `${totalSks} SKS`, icon: 'credit_score', iconColor: 'text-primary/50' },
+        { label: 'Total SKS', value: String(totalSks), icon: 'credit_score', iconColor: 'text-primary/50' },
         { label: 'Kelas Hari Ini', value: String(todayClasses), icon: 'today', iconColor: 'text-green-500/50' },
         { label: 'Tugas Deadline', value: String(tasksDeadlineCount), icon: 'assignment_late', iconColor: 'text-orange-500/50' },
         { label: 'Ujian Mendatang', value: String(upcomingExamsCount), icon: 'event_busy', iconColor: 'text-red-500/50' },
@@ -288,7 +287,6 @@ export default function SchedulePage() {
             return next;
         });
 
-        actionLoading.show(editingCourse ? 'Memperbarui kelas...' : 'Menambahkan kelas...');
         setSelectedDay(targetDay);
         setIsModalOpen(false);
         setEditingCourse(null);
@@ -297,7 +295,6 @@ export default function SchedulePage() {
 
     const handleDeleteCourse = (courseId) => {
         if (window.confirm('Yakin ingin menghapus kelas ini?')) {
-            actionLoading.show('Menghapus kelas...');
             setScheduleData(prev => ({
                 ...prev,
                 [selectedDay]: prev[selectedDay].filter(course => course.id !== courseId),
@@ -307,12 +304,6 @@ export default function SchedulePage() {
 
     return (
         <>
-            <LoadingOverlay
-                visible={Boolean(actionLoading.message) || saveStatus === 'saving'}
-                title={actionLoading.message || 'Menyimpan jadwal...'}
-                description="Perubahan sedang disimpan ke cloud."
-            />
-
             <Header
                 title="Jadwal Harian"
                 subtitle={weekSubtitle}
@@ -324,7 +315,7 @@ export default function SchedulePage() {
                 onNextWeek={() => setWeekOffset(prev => prev + 1)}
             />
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8 scroll-smooth pb-20 lg:pb-8">
+            <div className="page-content-animated flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8 scroll-smooth pb-20 lg:pb-8">
                 {(loadError || saveStatus === 'error') && (
                     <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
                         ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
@@ -365,7 +356,7 @@ export default function SchedulePage() {
                                     onDelete={handleDeleteCourse}
                                 />
                             ))}
-                            {courses.length === 0 && (
+                            {courses.length === 0 && dataReady && (
                                 <div className="text-center py-12 text-slate-400">
                                     <span className="material-symbols-outlined text-5xl mb-2">event_busy</span>
                                     <p>Tidak ada kelas hari ini</p>

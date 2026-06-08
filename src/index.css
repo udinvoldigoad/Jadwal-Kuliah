@@ -117,36 +117,33 @@ body {
   animation: zoomIn 0.2s ease-out forwards;
 }
 
-@keyframes loadingBar {
-  0% {
-    transform: translateX(-120%);
-  }
-
-  100% {
-    transform: translateX(220%);
-  }
+.app-shell-enter {
+  animation: appShellEnter 620ms ease-out both;
 }
 
-@keyframes loadingDot {
-  0%,
-  80%,
-  100% {
-    transform: scale(0.7);
-    opacity: 0.35;
-  }
-
-  40% {
-    transform: scale(1);
-    opacity: 1;
-  }
+.page-transition-shell {
+  animation: pageFadeIn 620ms ease-out both;
+  will-change: opacity;
 }
 
-.loading-bar {
-  animation: loadingBar 1.2s ease-in-out infinite;
+.page-transition-shell>header {
+  animation: componentFadeIn 620ms ease-out both;
 }
 
-.loading-dot {
-  animation: loadingDot 1s ease-in-out infinite;
+.page-content-animated>* {
+  animation: componentFadeIn 620ms ease-out both;
+}
+
+.component-float-in {
+  animation: componentFadeIn 620ms ease-out both;
+}
+
+.task-sections-fade {
+  animation: componentFadeIn 620ms ease-out both;
+}
+
+.loading-fade-pulse {
+  animation: loadingFadePulse 1.8s ease-in-out infinite;
 }
 
 .animation-delay-150 {
@@ -155,4 +152,59 @@ body {
 
 .animation-delay-300 {
   animation-delay: 300ms;
+}
+
+@keyframes appShellEnter {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes pageFadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes componentFadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes loadingFadePulse {
+
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .page-transition-shell,
+  .page-transition-shell>header,
+  .page-content-animated>*,
+  .component-float-in,
+  .task-sections-fade,
+  .app-shell-enter,
+  .loading-fade-pulse {
+    animation: none !important;
+  }
 }

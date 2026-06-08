@@ -17,7 +17,7 @@ export default function ExamRow({ exam, onEdit, onDelete }) {
     }, []);
 
     return (
-        <div className="group flex items-start md:items-center gap-3 md:gap-4 px-3 md:px-4 py-3 md:py-4 border-b border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+        <div className="component-float-in group flex items-start md:items-center gap-3 md:gap-4 px-3 md:px-4 py-3 md:py-4 border-b border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
             {/* Date */}
             <div className="flex flex-col items-center justify-center min-w-[40px] md:min-w-[50px] text-center">
                 <span className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-mono-data leading-tight">
