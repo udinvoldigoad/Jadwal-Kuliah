@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Modal from '../components/Modal';
 import TaskRow from '../components/assignments/TaskRow';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -27,6 +27,26 @@ const formatDateInput = (timestamp) => {
     return `${year}-${month}-${day}`;
 };
 
+const normalizeAndPruneCompletedTasks = (taskList, now = Date.now()) => {
+    if (!Array.isArray(taskList)) return [];
+
+    return taskList
+        .map((task) => {
+            if (!task.isCompleted) return task;
+
+            const completedAt = Number(task.completedAt);
+            if (Number.isFinite(completedAt) && completedAt > 0) {
+                return { ...task, completedAt };
+            }
+
+            return { ...task, completedAt: now };
+        })
+        .filter((task) => {
+            if (!task.isCompleted) return true;
+            return (now - task.completedAt) <= SEVEN_DAYS_MS;
+        });
+};
+
 export default function AssignmentsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [tasks, setTasks] = useState(initialTasks);
@@ -46,7 +66,9 @@ export default function AssignmentsPage() {
                     loadTasks(),
                     loadSchedule(),
                 ]);
-                if (savedTasks) setTasks(savedTasks);
+                if (savedTasks) {
+                    setTasks(normalizeAndPruneCompletedTasks(savedTasks));
+                }
                 if (savedSchedule) {
                     const courseNames = new Set();
                     Object.values(savedSchedule).flat().forEach(course => {
@@ -63,27 +85,6 @@ export default function AssignmentsPage() {
         }
         fetchData();
     }, []);
-
-    // Cleanup tasks completed more than 7 days ago
-    const cleanupOldTasks = useCallback(() => {
-        const now = Date.now();
-        setTasks(prevTasks => {
-            const filtered = prevTasks.filter(task => {
-                if (task.isCompleted && task.completedAt) {
-                    return (now - task.completedAt) <= SEVEN_DAYS_MS;
-                }
-                return true;
-            });
-            if (filtered.length !== prevTasks.length) {
-                return filtered;
-            }
-            return prevTasks;
-        });
-    }, []);
-
-    useEffect(() => {
-        cleanupOldTasks();
-    }, [cleanupOldTasks]);
 
     // Save to Supabase when tasks change (skip initial load)
     useEffect(() => {
