@@ -1,4 +1,4 @@
-import { useTheme } from './ThemeProvider';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Header({
     title,

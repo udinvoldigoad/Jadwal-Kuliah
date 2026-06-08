@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { useUser } from '../stores/useUserStore.jsx';
+import { useUser } from '../contexts/UserContext';
 
 export default function Sidebar({ onEditProfile, onOpenSettings }) {
     const { profile } = useUser();

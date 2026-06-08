@@ -1,4 +1,4 @@
-import { useAuth } from '../components/AuthProvider';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
     const { signInWithGoogle } = useAuth();
@@ -6,7 +6,7 @@ export default function LoginPage() {
     const handleLogin = async () => {
         try {
             await signInWithGoogle();
-        } catch (error) {
+        } catch {
             alert('Gagal login. Silakan coba lagi.');
         }
     };

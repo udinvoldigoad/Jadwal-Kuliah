@@ -1,10 +1,28 @@
-import { useState, useCallback, createContext, useContext } from 'react';
-import { useAuth } from '../components/AuthProvider';
+import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { UserContext } from '../contexts/UserContext';
 
-const UserContext = createContext(null);
+function loadLocalProfile(userId) {
+    if (!userId) return {};
+    try {
+        return JSON.parse(localStorage.getItem(`jadwal-profile-${userId}`) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function saveLocalProfile(userId, profile) {
+    if (!userId) return;
+    try {
+        localStorage.setItem(`jadwal-profile-${userId}`, JSON.stringify(profile));
+    } catch {
+        // Local profile is a convenience; auth metadata remains the source of truth.
+    }
+}
 
 export function UserProvider({ children }) {
     const { user } = useAuth();
+    const userId = user?.id;
 
     // Profile data comes from Google auth metadata
     const profile = {
@@ -14,45 +32,39 @@ export function UserProvider({ children }) {
         email: user?.email || '',
     };
 
-    const [localProgram, setLocalProgram] = useState(() => {
-        try {
-            const saved = localStorage.getItem(`jadwal-program-${user?.id}`);
-            return saved || '';
-        } catch { return ''; }
-    });
+    const [localProfile, setLocalProfile] = useState(() => loadLocalProfile(userId));
 
     const mergedProfile = {
         ...profile,
-        program: localProgram || profile.program,
+        ...localProfile,
     };
 
-    const updateProfile = useCallback((updates) => {
-        if (updates.program !== undefined) {
-            setLocalProgram(updates.program);
-            try {
-                localStorage.setItem(`jadwal-program-${user?.id}`, updates.program);
-            } catch { /* ignore */ }
-        }
-    }, [user?.id]);
+    const updateProfile = (updates) => {
+        setLocalProfile((current) => {
+            const next = {
+                ...current,
+                name: updates.name?.trim() || profile.name,
+                program: updates.program?.trim() || profile.program,
+                photoUrl: updates.photoUrl?.trim() || profile.photoUrl,
+            };
+            saveLocalProfile(userId, next);
+            return next;
+        });
+    };
 
-    const resetProfile = useCallback(() => {
-        setLocalProgram('');
+    const resetProfile = () => {
+        setLocalProfile({});
         try {
-            localStorage.removeItem(`jadwal-program-${user?.id}`);
-        } catch { /* ignore */ }
-    }, [user?.id]);
+            localStorage.removeItem(`jadwal-profile-${userId}`);
+            localStorage.removeItem(`jadwal-program-${userId}`);
+        } catch {
+            // ignore
+        }
+    };
 
     return (
         <UserContext.Provider value={{ profile: mergedProfile, updateProfile, resetProfile }}>
             {children}
         </UserContext.Provider>
     );
-}
-
-export function useUser() {
-    const context = useContext(UserContext);
-    if (!context) {
-        throw new Error('useUser must be used within a UserProvider');
-    }
-    return context;
 }

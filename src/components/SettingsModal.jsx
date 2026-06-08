@@ -1,14 +1,61 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { useTheme } from './ThemeProvider';
-import { useAuth } from './AuthProvider';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { resetAllData } from '../lib/db';
+import {
+    isPushSupported,
+    getPermissionStatus,
+    requestPermissionAndSubscribe,
+    unsubscribe,
+    isSubscribed as checkIsSubscribed,
+} from '../lib/pushNotifications';
 
-export default function SettingsModal({ isOpen, onClose, onResetData }) {
+export default function SettingsModal({ isOpen, onClose }) {
     const { theme, toggleTheme } = useTheme();
-    const { signOut } = useAuth();
+    const { user, signOut } = useAuth();
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [isConfirmed, setIsConfirmed] = useState(false);
+
+    // Push notification state
+    const [pushSupported] = useState(() => isPushSupported());
+    const [pushSubscribed, setPushSubscribed] = useState(false);
+    const [pushLoading, setPushLoading] = useState(false);
+    const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
+
+    // Check push subscription status when modal opens
+    useEffect(() => {
+        if (isOpen && pushSupported) {
+            checkIsSubscribed().then(setPushSubscribed);
+            setPushPermission(getPermissionStatus());
+        }
+    }, [isOpen, pushSupported]);
+
+    const handleTogglePush = async () => {
+        if (!user) return;
+        setPushLoading(true);
+
+        try {
+            if (pushSubscribed) {
+                // Unsubscribe
+                await unsubscribe();
+                setPushSubscribed(false);
+            } else {
+                // Subscribe
+                const result = await requestPermissionAndSubscribe(user.id);
+                if (result.success) {
+                    setPushSubscribed(true);
+                    setPushPermission('granted');
+                } else if (result.error === 'denied') {
+                    setPushPermission('denied');
+                }
+            }
+        } catch (err) {
+            console.error('Toggle push failed:', err);
+        } finally {
+            setPushLoading(false);
+        }
+    };
 
     const handleLogout = async () => {
         await signOut();
@@ -53,6 +100,46 @@ export default function SettingsModal({ isOpen, onClose, onResetData }) {
                     >
                         Ganti
                     </button>
+                </div>
+
+                {/* Push Notification Toggle */}
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-slate-500 dark:text-slate-400">
+                            {pushSubscribed ? 'notifications_active' : 'notifications_off'}
+                        </span>
+                        <div>
+                            <h4 className="text-sm font-medium text-slate-900 dark:text-white">Push Notification</h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {!pushSupported
+                                    ? 'Browser tidak mendukung'
+                                    : pushPermission === 'denied'
+                                        ? 'Diblokir di browser'
+                                        : pushSubscribed
+                                            ? 'Aktif'
+                                            : 'Nonaktif'}
+                            </p>
+                        </div>
+                    </div>
+                    {pushSupported && pushPermission !== 'denied' ? (
+                        <button
+                            onClick={handleTogglePush}
+                            disabled={pushLoading}
+                            className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${pushSubscribed
+                                    ? 'bg-blue-600'
+                                    : 'bg-slate-300 dark:bg-slate-600'
+                                } ${pushLoading ? 'opacity-60' : ''}`}
+                        >
+                            <div
+                                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${pushSubscribed ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                            />
+                        </button>
+                    ) : pushPermission === 'denied' ? (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                            Buka Settings Browser
+                        </span>
+                    ) : null}
                 </div>
 
                 {/* Reset Data Section */}

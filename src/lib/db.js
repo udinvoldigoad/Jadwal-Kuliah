@@ -9,6 +9,10 @@ async function getUserId() {
     return session?.user?.id;
 }
 
+function missingUserResult() {
+    return { success: false, error: 'Sesi pengguna tidak ditemukan.' };
+}
+
 // ========================
 // SCHEDULE
 // ========================
@@ -33,7 +37,7 @@ export async function loadSchedule() {
 
 export async function saveSchedule(scheduleData) {
     const userId = await getUserId();
-    if (!userId) return;
+    if (!userId) return missingUserResult();
 
     const { error } = await supabase
         .from('schedules')
@@ -44,7 +48,10 @@ export async function saveSchedule(scheduleData) {
 
     if (error) {
         console.error('Error saving schedule:', error.message);
+        return { success: false, error: error.message };
     }
+
+    return { success: true };
 }
 
 // ========================
@@ -70,7 +77,7 @@ export async function loadTasks() {
 
 export async function saveTasks(tasksData) {
     const userId = await getUserId();
-    if (!userId) return;
+    if (!userId) return missingUserResult();
 
     const { error } = await supabase
         .from('tasks')
@@ -81,7 +88,10 @@ export async function saveTasks(tasksData) {
 
     if (error) {
         console.error('Error saving tasks:', error.message);
+        return { success: false, error: error.message };
     }
+
+    return { success: true };
 }
 
 // ========================
@@ -107,7 +117,7 @@ export async function loadExams() {
 
 export async function saveExams(examsData) {
     const userId = await getUserId();
-    if (!userId) return;
+    if (!userId) return missingUserResult();
 
     const { error } = await supabase
         .from('exams')
@@ -118,7 +128,10 @@ export async function saveExams(examsData) {
 
     if (error) {
         console.error('Error saving exams:', error.message);
+        return { success: false, error: error.message };
     }
+
+    return { success: true };
 }
 
 // ========================
@@ -127,7 +140,7 @@ export async function saveExams(examsData) {
 
 export async function resetAllData() {
     const userId = await getUserId();
-    if (!userId) return;
+    if (!userId) return missingUserResult();
 
     const [scheduleResult, tasksResult, examsResult] = await Promise.all([
         supabase.from('schedules').delete().eq('user_id', userId),
@@ -138,4 +151,11 @@ export async function resetAllData() {
     if (scheduleResult.error) console.error('Error deleting schedule:', scheduleResult.error.message);
     if (tasksResult.error) console.error('Error deleting tasks:', tasksResult.error.message);
     if (examsResult.error) console.error('Error deleting exams:', examsResult.error.message);
+
+    const firstError = scheduleResult.error || tasksResult.error || examsResult.error;
+    if (firstError) {
+        return { success: false, error: firstError.message };
+    }
+
+    return { success: true };
 }

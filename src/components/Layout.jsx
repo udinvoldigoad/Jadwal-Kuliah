@@ -4,7 +4,8 @@ import Sidebar from './Sidebar';
 import ProfileModal from './ProfileModal';
 import SettingsModal from './SettingsModal';
 import MobileTopNavbar from './MobileTopNavbar';
-import { UserProvider, useUser } from '../stores/useUserStore.jsx';
+import NotificationBanner from './NotificationBanner';
+import { UserProvider } from '../stores/useUserStore.jsx';
 
 function LayoutContent({ children }) {
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -48,6 +49,14 @@ function LayoutContent({ children }) {
                     title={pageInfo.title}
                     subtitle={pageInfo.subtitle}
                 />
+
+                {/* Notification Banner - floating overlay */}
+                <div className="absolute top-12 lg:top-0 left-0 right-0 z-40 pointer-events-none">
+                    <div className="pointer-events-auto">
+                        <NotificationBanner />
+                    </div>
+                </div>
+
                 {children}
             </main>
 

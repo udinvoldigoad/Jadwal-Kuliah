@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useTheme } from '../components/ThemeProvider';
 import Modal from '../components/Modal';
 import TaskRow from '../components/assignments/TaskRow';
 import { loadTasks, saveTasks, loadSchedule } from '../lib/db';
@@ -9,14 +8,31 @@ const initialTasks = [];
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+const createId = () => (
+    window.crypto?.randomUUID ? window.crypto.randomUUID() : String(Date.now())
+);
 
+const parseLocalDate = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
+
+const formatDateInput = (timestamp) => {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 export default function AssignmentsPage() {
-    const { toggleTheme } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const [tasks, setTasks] = useState(initialTasks);
     const [courseList, setCourseList] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [saveStatus, setSaveStatus] = useState('idle');
+    const [formError, setFormError] = useState('');
     const isInitialLoad = useRef(true);
 
     // Load data from Supabase on mount
@@ -37,6 +53,7 @@ export default function AssignmentsPage() {
                 }
             } catch (err) {
                 console.error('Error loading tasks:', err);
+                setLoadError('Gagal memuat tugas. Periksa koneksi lalu muat ulang halaman.');
             } finally {
                 setIsLoading(false);
                 isInitialLoad.current = false;
@@ -69,10 +86,28 @@ export default function AssignmentsPage() {
     // Save to Supabase when tasks change (skip initial load)
     useEffect(() => {
         if (isInitialLoad.current) return;
+        let cancelled = false;
         const timer = setTimeout(() => {
-            saveTasks(tasks);
+            setSaveStatus('saving');
+            saveTasks(tasks).then((result) => {
+                if (cancelled) return;
+                if (result?.success) {
+                    setSaveStatus('saved');
+                    setLoadError('');
+                } else {
+                    setSaveStatus('error');
+                    setLoadError(result?.error || 'Gagal menyimpan tugas.');
+                }
+            }).catch(() => {
+                if (cancelled) return;
+                setSaveStatus('error');
+                setLoadError('Gagal menyimpan tugas.');
+            });
         }, 500);
-        return () => clearTimeout(timer);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [tasks]);
 
     const handleToggle = (taskId) => {
@@ -101,9 +136,9 @@ export default function AssignmentsPage() {
         if (!searchQuery.trim()) return taskList;
         const query = searchQuery.toLowerCase();
         return taskList.filter(task =>
-            task.title.toLowerCase().includes(query) ||
-            task.description.toLowerCase().includes(query) ||
-            task.course.toLowerCase().includes(query)
+            (task.title || '').toLowerCase().includes(query) ||
+            (task.description || '').toLowerCase().includes(query) ||
+            (task.course || '').toLowerCase().includes(query)
         );
     };
 
@@ -133,6 +168,7 @@ export default function AssignmentsPage() {
             course: '',
             dueDate: new Date().toISOString().split('T')[0],
         });
+        setFormError('');
         setIsModalOpen(true);
     };
 
@@ -140,7 +176,7 @@ export default function AssignmentsPage() {
         setEditingTask(task);
         // Convert dueDate to YYYY-MM-DD format for date input
         const dueDateValue = task.dueDateTimestamp
-            ? new Date(task.dueDateTimestamp).toISOString().split('T')[0]
+            ? formatDateInput(task.dueDateTimestamp)
             : new Date().toISOString().split('T')[0];
         setFormData({
             title: task.title,
@@ -148,11 +184,12 @@ export default function AssignmentsPage() {
             course: task.course || '',
             dueDate: dueDateValue,
         });
+        setFormError('');
         setIsModalOpen(true);
     };
 
     const formatDueDate = (dateStr) => {
-        const date = new Date(dateStr);
+        const date = parseLocalDate(dateStr);
         const day = date.getDate();
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
         return `${day} ${months[date.getMonth()]}`;
@@ -160,6 +197,25 @@ export default function AssignmentsPage() {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        const title = formData.title.trim();
+        const description = formData.description.trim();
+        const course = formData.course.trim();
+        const dueDate = parseLocalDate(formData.dueDate);
+
+        if (!title) {
+            setFormError('Judul tugas wajib diisi.');
+            return;
+        }
+
+        if (!course) {
+            setFormError('Mata kuliah wajib diisi.');
+            return;
+        }
+
+        if (Number.isNaN(dueDate.getTime())) {
+            setFormError('Deadline tidak valid.');
+            return;
+        }
 
         if (editingTask) {
             // Update existing task
@@ -167,24 +223,24 @@ export default function AssignmentsPage() {
                 task.id === editingTask.id
                     ? {
                         ...task,
-                        title: formData.title,
-                        description: formData.description,
-                        course: formData.course,
+                        title,
+                        description,
+                        course,
                         dueDate: formatDueDate(formData.dueDate),
-                        dueDateTimestamp: new Date(formData.dueDate).getTime(),
+                        dueDateTimestamp: dueDate.getTime(),
                     }
                     : task
             ));
         } else {
             // Add new task
             const newTask = {
-                id: Date.now(),
-                title: formData.title,
-                description: formData.description,
-                course: formData.course,
+                id: createId(),
+                title,
+                description,
+                course,
                 courseIcon: 'assignment',
                 dueDate: formatDueDate(formData.dueDate),
-                dueDateTimestamp: new Date(formData.dueDate).getTime(),
+                dueDateTimestamp: dueDate.getTime(),
                 isCompleted: false,
                 completedAt: null,
             };
@@ -194,6 +250,7 @@ export default function AssignmentsPage() {
 
         setIsModalOpen(false);
         setEditingTask(null);
+        setFormError('');
     };
 
 
@@ -251,6 +308,15 @@ export default function AssignmentsPage() {
                     </button>
                 </div>
 
+                {(isLoading || loadError || saveStatus === 'saving' || saveStatus === 'error') && (
+                    <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
+                        ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
+                        : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
+                        }`}>
+                        {isLoading ? 'Memuat data tugas...' : loadError || 'Menyimpan perubahan tugas...'}
+                    </div>
+                )}
+
                 {/* Upcoming Section */}
                 <section className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700">
                     <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 bg-slate-50/50 dark:bg-slate-800/30">
@@ -302,6 +368,12 @@ export default function AssignmentsPage() {
             {/* Add Task Modal */}
             <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingTask(null); }} title={editingTask ? "Edit Tugas" : "Tambah Tugas Baru"}>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    {formError && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                            {formError}
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                             Judul Tugas *

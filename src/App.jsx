@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeProvider';
-import { AuthProvider, useAuth } from './components/AuthProvider';
+import { AuthProvider } from './components/AuthProvider';
+import { useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import SchedulePage from './pages/SchedulePage';
 import AssignmentsPage from './pages/AssignmentsPage';

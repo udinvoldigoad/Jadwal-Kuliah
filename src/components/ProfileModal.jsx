@@ -1,35 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Modal from './Modal';
-import { useUser } from '../stores/useUserStore.jsx';
+import { useUser } from '../contexts/UserContext';
 
 export default function ProfileModal({ isOpen, onClose }) {
     const { profile, updateProfile } = useUser();
-    const [formData, setFormData] = useState({
-        name: profile.name,
-        program: profile.program,
-        photoUrl: profile.photoUrl,
-    });
+    const [draft, setDraft] = useState({});
 
-    // Reset form when modal opens
-    useEffect(() => {
-        if (isOpen) {
-            setFormData({
-                name: profile.name,
-                program: profile.program,
-                photoUrl: profile.photoUrl,
-            });
-        }
-    }, [isOpen, profile]);
+    const formData = {
+        name: draft.name ?? profile.name,
+        program: draft.program ?? profile.program,
+        photoUrl: draft.photoUrl ?? profile.photoUrl,
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         updateProfile(formData);
+        setDraft({});
         onClose();
     };
 
+    const handleClose = () => {
+        setDraft({});
+        onClose();
+    };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Edit Profil">
+        <Modal isOpen={isOpen} onClose={handleClose} title="Edit Profil">
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -39,7 +35,7 @@ export default function ProfileModal({ isOpen, onClose }) {
                         type="text"
                         required
                         value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        onChange={(e) => setDraft(prev => ({ ...prev, name: e.target.value }))}
                         className="w-full px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                         placeholder="Contoh: Udin Voldigoad"
                     />
@@ -53,7 +49,7 @@ export default function ProfileModal({ isOpen, onClose }) {
                         type="text"
                         required
                         value={formData.program}
-                        onChange={(e) => setFormData(prev => ({ ...prev, program: e.target.value }))}
+                        onChange={(e) => setDraft(prev => ({ ...prev, program: e.target.value }))}
                         className="w-full px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                         placeholder="Contoh: Teknik Informatika"
                     />
@@ -66,7 +62,7 @@ export default function ProfileModal({ isOpen, onClose }) {
                     <input
                         type="url"
                         value={formData.photoUrl}
-                        onChange={(e) => setFormData(prev => ({ ...prev, photoUrl: e.target.value }))}
+                        onChange={(e) => setDraft(prev => ({ ...prev, photoUrl: e.target.value }))}
                         className="w-full px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                         placeholder="https://example.com/photo.jpg"
                     />
@@ -87,7 +83,7 @@ export default function ProfileModal({ isOpen, onClose }) {
                 <div className="flex gap-3 mt-2">
                     <button
                         type="button"
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="flex-1 px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium text-sm"
                     >
                         Batal

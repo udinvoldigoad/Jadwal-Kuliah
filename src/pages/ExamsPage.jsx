@@ -32,6 +32,29 @@ const formatShortDate = (date) => {
     return `${day} ${months[date.getMonth()]}`;
 };
 
+const createId = () => (
+    window.crypto?.randomUUID ? window.crypto.randomUUID() : String(Date.now())
+);
+
+const parseLocalDate = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
+
+const formatDateInput = (dateValue) => {
+    const date = new Date(dateValue);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const parseTimeMinutes = (time) => {
+    const [hours, minutes] = String(time || '').split(':').map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return 0;
+    return (hours * 60) + minutes;
+};
+
 // Initial exams - empty for fresh start
 const initialExams = [];
 
@@ -49,11 +72,14 @@ export default function ExamsPage() {
     const [exams, setExams] = useState(initialExams);
     const [courseList, setCourseList] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [saveStatus, setSaveStatus] = useState('idle');
     const isInitialLoad = useRef(true);
     const [nextExam, setNextExam] = useState(null);
     const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExam, setEditingExam] = useState(null);
+    const [formError, setFormError] = useState('');
     const [formData, setFormData] = useState({
         name: '',
         type: 'UTS',
@@ -82,6 +108,7 @@ export default function ExamsPage() {
                 }
             } catch (err) {
                 console.error('Error loading exams:', err);
+                setLoadError('Gagal memuat ujian. Periksa koneksi lalu muat ulang halaman.');
             } finally {
                 setIsLoading(false);
                 isInitialLoad.current = false;
@@ -93,10 +120,28 @@ export default function ExamsPage() {
     // Save to Supabase when exams change (skip initial load)
     useEffect(() => {
         if (isInitialLoad.current) return;
+        let cancelled = false;
         const timer = setTimeout(() => {
-            saveExams(exams);
+            setSaveStatus('saving');
+            saveExams(exams).then((result) => {
+                if (cancelled) return;
+                if (result?.success) {
+                    setSaveStatus('saved');
+                    setLoadError('');
+                } else {
+                    setSaveStatus('error');
+                    setLoadError(result?.error || 'Gagal menyimpan ujian.');
+                }
+            }).catch(() => {
+                if (cancelled) return;
+                setSaveStatus('error');
+                setLoadError('Gagal menyimpan ujian.');
+            });
         }, 500);
-        return () => clearTimeout(timer);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [exams]);
 
     useEffect(() => {
@@ -107,6 +152,9 @@ export default function ExamsPage() {
 
         if (upcoming.length > 0) {
             setNextExam(upcoming[0]);
+        } else {
+            setNextExam(null);
+            setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         }
     }, [exams]);
 
@@ -138,20 +186,21 @@ export default function ExamsPage() {
         setFormData({
             name: '',
             type: 'UTS',
-            date: tomorrow.toISOString().split('T')[0],
+            date: formatDateInput(tomorrow),
             startTime: '09:00',
             endTime: '11:00',
             room: '',
             lecturer: '',
         });
+        setFormError('');
         setIsModalOpen(true);
     };
 
     const handleEditExam = (exam) => {
         setEditingExam(exam);
         const dateValue = exam.targetDate
-            ? new Date(exam.targetDate).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0];
+            ? formatDateInput(exam.targetDate)
+            : formatDateInput(new Date());
         const [startTime, endTime] = exam.time ? exam.time.split(' - ') : ['09:00', '11:00'];
         setFormData({
             name: exam.name,
@@ -162,12 +211,36 @@ export default function ExamsPage() {
             room: exam.room || '',
             lecturer: exam.lecturer || '',
         });
+        setFormError('');
         setIsModalOpen(true);
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        const targetDate = new Date(`${formData.date}T${formData.startTime}:00`);
+        const name = formData.name.trim();
+        const room = formData.room.trim();
+        const lecturer = formData.lecturer.trim();
+        const date = parseLocalDate(formData.date);
+        const startMinutes = parseTimeMinutes(formData.startTime);
+        const endMinutes = parseTimeMinutes(formData.endTime);
+
+        if (!name) {
+            setFormError('Nama mata kuliah wajib diisi.');
+            return;
+        }
+
+        if (Number.isNaN(date.getTime())) {
+            setFormError('Tanggal ujian tidak valid.');
+            return;
+        }
+
+        if (startMinutes >= endMinutes) {
+            setFormError('Jam selesai harus lebih besar dari jam mulai.');
+            return;
+        }
+
+        const [startHour, startMinute] = formData.startTime.split(':').map(Number);
+        const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), startHour, startMinute, 0);
 
         if (editingExam) {
             // Update existing exam
@@ -175,12 +248,12 @@ export default function ExamsPage() {
                 exam.id === editingExam.id
                     ? {
                         ...exam,
-                        name: formData.name,
+                        name,
                         type: formData.type,
                         date: formatShortDate(targetDate),
                         time: `${formData.startTime} - ${formData.endTime}`,
-                        room: formData.room,
-                        lecturer: formData.lecturer,
+                        room,
+                        lecturer,
                         targetDate: targetDate,
                     }
                     : exam
@@ -188,13 +261,13 @@ export default function ExamsPage() {
         } else {
             // Add new exam
             const newExam = {
-                id: Date.now(),
-                name: formData.name,
+                id: createId(),
+                name,
                 type: formData.type,
                 date: formatShortDate(targetDate),
                 time: `${formData.startTime} - ${formData.endTime}`,
-                room: formData.room,
-                lecturer: formData.lecturer,
+                room,
+                lecturer,
                 targetDate: targetDate,
             };
 
@@ -203,6 +276,7 @@ export default function ExamsPage() {
 
         setIsModalOpen(false);
         setEditingExam(null);
+        setFormError('');
     };
 
     const handleDeleteExam = (examId) => {
@@ -212,7 +286,7 @@ export default function ExamsPage() {
     };
 
     // Group exams by date
-    const groupedExams = exams
+    const groupedExams = [...exams]
         .sort((a, b) => a.targetDate - b.targetDate)
         .reduce((groups, exam) => {
             const dateKey = getDateKey(exam.targetDate);
@@ -248,6 +322,15 @@ export default function ExamsPage() {
                     <span className="material-symbols-outlined text-[18px]">add</span>
                     <span className="text-sm font-medium">Tambah Ujian</span>
                 </button>
+
+                {(isLoading || loadError || saveStatus === 'saving' || saveStatus === 'error') && (
+                    <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
+                        ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
+                        : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
+                        }`}>
+                        {isLoading ? 'Memuat data ujian...' : loadError || 'Menyimpan perubahan ujian...'}
+                    </div>
+                )}
 
                 {/* Countdown Hero */}
                 {nextExam && <CountdownHero exam={nextExam} timeLeft={timeLeft} />}
@@ -288,6 +371,12 @@ export default function ExamsPage() {
             {/* Add Exam Modal */}
             <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingExam(null); }} title={editingExam ? "Edit Jadwal Ujian" : "Tambah Jadwal Ujian"}>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    {formError && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                            {formError}
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                             Nama Mata Kuliah *

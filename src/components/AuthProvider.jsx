@@ -1,26 +1,25 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-
-const AuthContext = createContext(null);
+import { AuthContext } from '../contexts/AuthContext';
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(() => Boolean(supabase));
 
     useEffect(() => {
-        // If supabase client is not available, stop loading and show login
-        if (!supabase) {
-            setLoading(false);
-            return;
-        }
+        if (!supabase) return;
+
+        let isMounted = true;
 
         // Get initial session
         supabase.auth.getSession()
             .then(({ data: { session } }) => {
+                if (!isMounted) return;
                 setUser(session?.user ?? null);
                 setLoading(false);
             })
             .catch((err) => {
+                if (!isMounted) return;
                 console.error('Failed to get session:', err);
                 setLoading(false);
             });
@@ -32,7 +31,10 @@ export function AuthProvider({ children }) {
             }
         );
 
-        return () => subscription.unsubscribe();
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const signInWithGoogle = async () => {
@@ -65,12 +67,4 @@ export function AuthProvider({ children }) {
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
 }

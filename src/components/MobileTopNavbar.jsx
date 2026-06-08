@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { useTheme } from './ThemeProvider';
-import { useAuth } from './AuthProvider';
-import { useUser } from '../stores/useUserStore.jsx';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useUser } from '../contexts/UserContext';
 
 export default function MobileTopNavbar({
     onEditProfile,

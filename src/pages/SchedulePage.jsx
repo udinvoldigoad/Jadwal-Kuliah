@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { loadSchedule, saveSchedule, loadTasks, loadExams } from '../lib/db';
 import Header from '../components/Header';
 import Modal from '../components/Modal';
@@ -57,6 +57,36 @@ const dayNames = {
     fri: 'Jumat',
 };
 
+const createId = () => (
+    window.crypto?.randomUUID ? window.crypto.randomUUID() : String(Date.now())
+);
+
+const parseTimeMinutes = (time) => {
+    const [hours, minutes] = String(time || '').split(':').map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return 0;
+    return (hours * 60) + minutes;
+};
+
+const hasTimeConflict = (courses, startTime, endTime, ignoredCourseId) => {
+    const start = parseTimeMinutes(startTime);
+    const end = parseTimeMinutes(endTime);
+
+    return courses.some((course) => {
+        if (course.id === ignoredCourseId) return false;
+        const [courseStart, courseEnd] = String(course.time || '').split(' - ');
+        return start < parseTimeMinutes(courseEnd) && end > parseTimeMinutes(courseStart);
+    });
+};
+
+const isCourseLiveNow = (course, dayId, weekOffset) => {
+    const now = new Date();
+    if (weekOffset !== 0 || dayId !== getDayIdFromDate(now)) return false;
+
+    const [startTime, endTime] = String(course.time || '').split(' - ');
+    const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+    return currentMinutes >= parseTimeMinutes(startTime) && currentMinutes <= parseTimeMinutes(endTime);
+};
+
 export default function SchedulePage() {
     // Week navigation state
     const [weekOffset, setWeekOffset] = useState(0);
@@ -77,6 +107,9 @@ export default function SchedulePage() {
     const [editingCourse, setEditingCourse] = useState(null);
     const [scheduleData, setScheduleData] = useState(initialScheduleData);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [saveStatus, setSaveStatus] = useState('idle');
+    const [formError, setFormError] = useState('');
     const [tasksDeadlineCount, setTasksDeadlineCount] = useState(0);
     const [upcomingExamsCount, setUpcomingExamsCount] = useState(0);
     const isInitialLoad = useRef(true);
@@ -120,6 +153,7 @@ export default function SchedulePage() {
                 }
             } catch (err) {
                 console.error('Error loading data:', err);
+                setLoadError('Gagal memuat data. Periksa koneksi lalu muat ulang halaman.');
             } finally {
                 setIsLoading(false);
                 isInitialLoad.current = false;
@@ -131,16 +165,34 @@ export default function SchedulePage() {
     // Save to Supabase when scheduleData changes (skip initial load)
     useEffect(() => {
         if (isInitialLoad.current) return;
+        let cancelled = false;
         const timer = setTimeout(() => {
-            saveSchedule(scheduleData);
+            setSaveStatus('saving');
+            saveSchedule(scheduleData).then((result) => {
+                if (cancelled) return;
+                if (result?.success) {
+                    setSaveStatus('saved');
+                    setLoadError('');
+                } else {
+                    setSaveStatus('error');
+                    setLoadError(result?.error || 'Gagal menyimpan jadwal.');
+                }
+            }).catch(() => {
+                if (cancelled) return;
+                setSaveStatus('error');
+                setLoadError('Gagal menyimpan jadwal.');
+            });
         }, 500);
-        return () => clearTimeout(timer);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [scheduleData]);
 
     const courses = scheduleData[selectedDay] || [];
     const allCourses = Object.values(scheduleData).flat();
     const totalSks = allCourses.reduce((sum, c) => sum + (c.sks || 0), 0);
-    const todayClasses = courses.length;
+    const todayClasses = weekOffset === 0 && scheduleData[todayDayId] ? scheduleData[todayDayId].length : 0;
 
     const stats = [
         { label: 'Total SKS', value: `${totalSks} SKS`, icon: 'credit_score', iconColor: 'text-primary/50' },
@@ -161,6 +213,7 @@ export default function SchedulePage() {
             room: '',
             lecturer: '',
         });
+        setFormError('');
         setIsModalOpen(true);
     };
 
@@ -177,50 +230,57 @@ export default function SchedulePage() {
             room: course.room || '',
             lecturer: course.lecturer || '',
         });
+        setFormError('');
         setIsModalOpen(true);
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        const name = formData.name.trim();
+        const targetDay = formData.day;
+        const startMinutes = parseTimeMinutes(formData.startTime);
+        const endMinutes = parseTimeMinutes(formData.endTime);
 
-        if (editingCourse) {
-            // Update existing course
-            setScheduleData(prev => ({
-                ...prev,
-                [selectedDay]: prev[selectedDay].map(course =>
-                    course.id === editingCourse.id
-                        ? {
-                            ...course,
-                            time: `${formData.startTime} - ${formData.endTime}`,
-                            name: formData.name,
-                            sks: parseInt(formData.sks),
-                            class: formData.class,
-                            room: formData.room,
-                            lecturer: formData.lecturer,
-                        }
-                        : course
-                ).sort((a, b) => a.time.localeCompare(b.time)),
-            }));
-        } else {
-            // Add new course
-            const newCourse = {
-                id: Date.now(),
-                time: `${formData.startTime} - ${formData.endTime}`,
-                name: formData.name,
-                sks: parseInt(formData.sks),
-                class: formData.class,
-                room: formData.room,
-                lecturer: formData.lecturer,
-            };
-
-            setScheduleData(prev => ({
-                ...prev,
-                [formData.day]: [...(prev[formData.day] || []), newCourse].sort((a, b) => a.time.localeCompare(b.time)),
-            }));
+        if (!name) {
+            setFormError('Nama mata kuliah wajib diisi.');
+            return;
         }
 
+        if (startMinutes >= endMinutes) {
+            setFormError('Jam selesai harus lebih besar dari jam mulai.');
+            return;
+        }
+
+        if (hasTimeConflict(scheduleData[targetDay] || [], formData.startTime, formData.endTime, editingCourse?.id)) {
+            setFormError('Jadwal bentrok dengan kelas lain di hari yang sama.');
+            return;
+        }
+
+        const courseData = {
+            id: editingCourse?.id || createId(),
+            time: `${formData.startTime} - ${formData.endTime}`,
+            name,
+            sks: parseInt(formData.sks),
+            class: formData.class.trim(),
+            room: formData.room.trim(),
+            lecturer: formData.lecturer.trim(),
+        };
+
+        setScheduleData(prev => {
+            const next = { ...prev };
+            if (editingCourse) {
+                Object.keys(next).forEach((day) => {
+                    next[day] = (next[day] || []).filter(course => course.id !== editingCourse.id);
+                });
+            }
+            next[targetDay] = [...(next[targetDay] || []), courseData].sort((a, b) => a.time.localeCompare(b.time));
+            return next;
+        });
+
+        setSelectedDay(targetDay);
         setIsModalOpen(false);
         setEditingCourse(null);
+        setFormError('');
     };
 
     const handleDeleteCourse = (courseId) => {
@@ -255,6 +315,15 @@ export default function SchedulePage() {
                     <span className="text-sm font-medium">Tambah Kelas</span>
                 </button>
 
+                {(isLoading || loadError || saveStatus === 'saving' || saveStatus === 'error') && (
+                    <div className={`rounded-lg border px-4 py-3 text-sm ${loadError || saveStatus === 'error'
+                        ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
+                        : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
+                        }`}>
+                        {isLoading ? 'Memuat data jadwal...' : loadError || 'Menyimpan perubahan jadwal...'}
+                    </div>
+                )}
+
                 {/* Stats Grid */}
                 <div className="grid grid-cols-4 gap-2 md:gap-4">
                     {stats.map((stat) => (
@@ -281,7 +350,7 @@ export default function SchedulePage() {
                                 <CourseCard
                                     key={course.id}
                                     course={course}
-                                    isLive={course.isLive}
+                                    isLive={isCourseLiveNow(course, selectedDay, weekOffset)}
                                     onEdit={handleEditCourse}
                                     onDelete={handleDeleteCourse}
                                 />
@@ -300,6 +369,12 @@ export default function SchedulePage() {
             {/* Add Class Modal */}
             <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingCourse(null); }} title={editingCourse ? "Edit Kelas" : "Tambah Kelas Baru"}>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    {formError && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                            {formError}
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                             Nama Mata Kuliah *
