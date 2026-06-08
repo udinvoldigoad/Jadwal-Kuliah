@@ -1,22 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import Modal from '../Modal';
 
-export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
+export default function TaskRow({ task, menuOpen = false, onToggleMenu, onCloseMenu, onToggle, onEdit, onDelete }) {
     const isCompleted = task.isCompleted;
-    const [menuOpen, setMenuOpen] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
     const menuRef = useRef(null);
+    const completedContentClass = isCompleted ? 'opacity-70' : '';
 
     // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
-                setMenuOpen(false);
+                onCloseMenu?.();
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [onCloseMenu]);
 
     const stopMenuEvent = (event) => {
         event.preventDefault();
@@ -30,14 +30,14 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
 
     const handleEditClick = (event) => {
         stopMenuEvent(event);
-        setMenuOpen(false);
+        onCloseMenu?.();
         setDetailOpen(false);
         onEdit?.(task);
     };
 
     const handleDeleteClick = (event) => {
         stopMenuEvent(event);
-        setMenuOpen(false);
+        onCloseMenu?.();
         setDetailOpen(false);
         onDelete?.(task.id);
     };
@@ -46,13 +46,13 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
         <>
             <div
                 onClick={handleRowClick}
-                className={`group relative flex items-start md:items-center gap-3 md:gap-4 px-3 md:px-4 py-3 border-b border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer ${isCompleted ? 'opacity-60' : ''} ${menuOpen ? 'z-40' : ''}`}
+                className={`group relative flex items-start md:items-center gap-3 md:gap-4 px-3 md:px-4 py-3 border-b border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer ${menuOpen ? 'z-40' : ''}`}
             >
                 {/* Checkbox */}
                 <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all mt-0.5 md:mt-0 ${isCompleted
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all mt-0.5 md:mt-0 ${completedContentClass} ${isCompleted
                         ? 'bg-green-500 border-green-500 text-white'
                         : 'border-slate-300 dark:border-slate-600 hover:border-primary'
                         }`}
@@ -63,7 +63,7 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
                 </button>
 
                 {/* Content */}
-                <div className="flex-1 min-w-0">
+                <div className={`flex-1 min-w-0 ${completedContentClass}`}>
                     {/* Title with badge */}
                     <div className="flex items-center gap-2">
                         <h4 className={`font-semibold text-sm md:text-base text-slate-900 dark:text-white truncate ${isCompleted ? 'line-through text-slate-500 dark:text-slate-400' : ''}`}>
@@ -86,7 +86,7 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
                 </div>
 
                 {/* Deadline - on the right */}
-                <div className="flex items-center gap-1 text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-mono-data flex-shrink-0">
+                <div className={`flex items-center gap-1 text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-mono-data flex-shrink-0 ${completedContentClass}`}>
                     <span className="material-symbols-outlined text-[12px] md:text-[14px]">schedule</span>
                     <span>{task.dueDate}</span>
                 </div>
@@ -102,7 +102,10 @@ export default function TaskRow({ task, onToggle, onEdit, onDelete }) {
                 >
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleMenu?.(task.id);
+                        }}
                         className="p-1.5 md:p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                         <span className="material-symbols-outlined text-[18px]">more_vert</span>

@@ -33,6 +33,7 @@ export default function AssignmentsPage() {
     const [loadError, setLoadError] = useState('');
     const [saveStatus, setSaveStatus] = useState('idle');
     const [formError, setFormError] = useState('');
+    const [openTaskMenuId, setOpenTaskMenuId] = useState(null);
     const isInitialLoad = useRef(true);
 
     // Load data from Supabase on mount
@@ -111,6 +112,7 @@ export default function AssignmentsPage() {
     }, [tasks]);
 
     const handleToggle = (taskId) => {
+        setOpenTaskMenuId(null);
         setTasks(prevTasks =>
             prevTasks.map(task => {
                 if (task.id === taskId) {
@@ -127,9 +129,14 @@ export default function AssignmentsPage() {
     };
 
     const handleDeleteTask = (taskId) => {
+        setOpenTaskMenuId(null);
         if (window.confirm('Yakin ingin menghapus tugas ini?')) {
             setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
         }
+    };
+
+    const handleToggleTaskMenu = (taskId) => {
+        setOpenTaskMenuId((currentTaskId) => currentTaskId === taskId ? null : taskId);
     };
 
     const filterTasks = (taskList) => {
@@ -173,6 +180,7 @@ export default function AssignmentsPage() {
     };
 
     const handleEditTask = (task) => {
+        setOpenTaskMenuId(null);
         setEditingTask(task);
         // Convert dueDate to YYYY-MM-DD format for date input
         const dueDateValue = task.dueDateTimestamp
@@ -329,7 +337,16 @@ export default function AssignmentsPage() {
                     <div>
                         {upcomingTasks.length > 0 ? (
                             upcomingTasks.map(task => (
-                                <TaskRow key={task.id} task={task} onToggle={handleToggle} onEdit={handleEditTask} onDelete={handleDeleteTask} />
+                                <TaskRow
+                                    key={task.id}
+                                    task={task}
+                                    menuOpen={openTaskMenuId === task.id}
+                                    onToggleMenu={handleToggleTaskMenu}
+                                    onCloseMenu={() => setOpenTaskMenuId(null)}
+                                    onToggle={handleToggle}
+                                    onEdit={handleEditTask}
+                                    onDelete={handleDeleteTask}
+                                />
                             ))
                         ) : (
                             <div className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
@@ -353,7 +370,16 @@ export default function AssignmentsPage() {
                     <div>
                         {completedTasks.length > 0 ? (
                             completedTasks.map(task => (
-                                <TaskRow key={task.id} task={task} onToggle={handleToggle} onEdit={handleEditTask} onDelete={handleDeleteTask} />
+                                <TaskRow
+                                    key={task.id}
+                                    task={task}
+                                    menuOpen={openTaskMenuId === task.id}
+                                    onToggleMenu={handleToggleTaskMenu}
+                                    onCloseMenu={() => setOpenTaskMenuId(null)}
+                                    onToggle={handleToggle}
+                                    onEdit={handleEditTask}
+                                    onDelete={handleDeleteTask}
+                                />
                             ))
                         ) : (
                             <div className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
