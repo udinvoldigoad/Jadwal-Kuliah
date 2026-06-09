@@ -1,5 +1,15 @@
 -- Migration: Notification center, reminder preferences, and delivery logs
 
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS public.notification_preferences (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   timezone TEXT NOT NULL DEFAULT 'Asia/Jakarta',
