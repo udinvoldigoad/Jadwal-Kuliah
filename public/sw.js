@@ -14,12 +14,15 @@ const STORE_NAME = 'notifications';
 function createNotificationRecord(data) {
     const timestamp = Number(data.timestamp) || Date.now();
     return {
-        id: data.id || data.notificationId || `${timestamp}-${Math.random().toString(36).slice(2)}`,
+        id: data.notificationId || data.id || `${timestamp}-${Math.random().toString(36).slice(2)}`,
+        type: data.type || 'push',
         title: data.title || 'Jadwal Kuliah',
         body: data.body || 'Ada pembaruan dari Jadwal Kuliah!',
         url: data.url || '/',
         icon: data.iconName || 'notifications',
         timestamp,
+        readAt: null,
+        dedupeKey: data.dedupeKey || '',
     };
 }
 

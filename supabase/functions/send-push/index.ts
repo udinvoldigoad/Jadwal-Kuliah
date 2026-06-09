@@ -325,7 +325,16 @@ serve(async (req: Request) => {
     }
 
     try {
-        const { userId, title, body, url, icon } = await req.json();
+        const {
+            userId,
+            title,
+            body,
+            url,
+            icon,
+            iconName,
+            notificationId,
+            dedupeKey,
+        } = await req.json();
 
         if (!userId || !title || !body) {
             return new Response(
@@ -409,17 +418,30 @@ serve(async (req: Request) => {
         }
 
         if (!subscriptions || subscriptions.length === 0) {
+            if (notificationId) {
+                await supabase.from("notification_delivery_logs").insert({
+                    notification_id: notificationId,
+                    user_id: userId,
+                    status: "no_subscription",
+                    error: "User has no active push subscriptions",
+                });
+            }
+
             return new Response(
-                JSON.stringify({ message: "No subscriptions found for user", sent: 0 }),
+                JSON.stringify({ message: "No subscriptions found for user", sent: 0, total: 0 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
         // Build push payload
         const payload = JSON.stringify({
+            id: notificationId,
+            notificationId,
+            dedupeKey,
             title,
             body,
             icon: icon || "/ITERA.png",
+            iconName: iconName || "notifications",
             url: url || "/",
             timestamp: Date.now(),
         });
@@ -461,8 +483,39 @@ serve(async (req: Request) => {
             (r) => r.status === "fulfilled" && r.value.status === "sent"
         ).length;
 
+        const deliveryLogs = results.map((result) => {
+            const value = result.status === "fulfilled"
+                ? result.value
+                : { endpoint: null, status: "error", error: String(result.reason) };
+
+            return {
+                notification_id: notificationId || null,
+                user_id: userId,
+                endpoint: value.endpoint,
+                status: value.status,
+                error: value.error || null,
+            };
+        });
+
+        if (deliveryLogs.length > 0) {
+            await supabase.from("notification_delivery_logs").insert(deliveryLogs);
+        }
+
+        if (notificationId && sent > 0) {
+            await supabase
+                .from("notifications")
+                .update({ sent_at: new Date().toISOString() })
+                .eq("id", notificationId)
+                .eq("user_id", userId);
+        }
+
         return new Response(
-            JSON.stringify({ message: `Push sent to ${sent}/${subscriptions.length} subscriptions`, results }),
+            JSON.stringify({
+                message: `Push sent to ${sent}/${subscriptions.length} subscriptions`,
+                sent,
+                total: subscriptions.length,
+                results,
+            }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     } catch (error) {

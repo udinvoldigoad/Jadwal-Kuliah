@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NotificationContext } from '../contexts/NotificationContext.js';
 import {
-    clearStoredNotifications,
+    clearNotifications,
+    loadNotifications,
+    markNotificationRead,
+} from '../lib/notifications';
+import {
     getStoredNotifications,
     saveStoredNotification,
 } from '../lib/notificationStore';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function mergeNotifications(currentNotifications, incomingNotification) {
     const next = [
@@ -21,8 +27,8 @@ export default function NotificationProvider({ children }) {
     const [notifications, setNotifications] = useState([]);
 
     const refreshNotifications = useCallback(async () => {
-        const storedNotifications = await getStoredNotifications();
-        setNotifications(storedNotifications);
+        const nextNotifications = await loadNotifications();
+        setNotifications(nextNotifications);
     }, []);
 
     const addNotification = useCallback(async (notification) => {
@@ -31,14 +37,37 @@ export default function NotificationProvider({ children }) {
     }, []);
 
     const clearAllNotifications = useCallback(async () => {
-        await clearStoredNotifications();
+        await clearNotifications();
         setNotifications([]);
+    }, []);
+
+    const markAsRead = useCallback(async (notificationId) => {
+        if (!notificationId) return;
+
+        const readAt = new Date().toISOString();
+        setNotifications(prev => prev.map((notification) => (
+            notification.id === notificationId
+                ? { ...notification, readAt }
+                : notification
+        )));
+
+        if (!UUID_PATTERN.test(notificationId)) return;
+
+        try {
+            await markNotificationRead(notificationId);
+        } catch (error) {
+            console.error('[Notifications] Failed to mark notification as read:', error);
+        }
     }, []);
 
     useEffect(() => {
         let cancelled = false;
 
-        getStoredNotifications().then((storedNotifications) => {
+        loadNotifications().then((nextNotifications) => {
+            if (!cancelled) setNotifications(nextNotifications);
+        }).catch(async (error) => {
+            console.error('[Notifications] Failed to refresh notifications:', error);
+            const storedNotifications = await getStoredNotifications();
             if (!cancelled) setNotifications(storedNotifications);
         });
 
@@ -61,11 +90,12 @@ export default function NotificationProvider({ children }) {
 
     const value = useMemo(() => ({
         notifications,
-        notificationCount: notifications.length,
+        notificationCount: notifications.filter(notification => !notification.readAt).length,
         addNotification,
         clearAllNotifications,
+        markAsRead,
         refreshNotifications,
-    }), [notifications, addNotification, clearAllNotifications, refreshNotifications]);
+    }), [notifications, addNotification, clearAllNotifications, markAsRead, refreshNotifications]);
 
     return (
         <NotificationContext.Provider value={value}>

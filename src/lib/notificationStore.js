@@ -7,11 +7,14 @@ function normalizeNotification(notification) {
     const timestamp = Number(notification?.timestamp) || Date.now();
     return {
         id: notification?.id || `${timestamp}-${Math.random().toString(36).slice(2)}`,
+        type: notification?.type || 'push',
         title: notification?.title || 'Notifikasi',
         body: notification?.body || '',
         url: notification?.url || '/',
         icon: notification?.icon || 'notifications',
         timestamp,
+        readAt: notification?.readAt || null,
+        dedupeKey: notification?.dedupeKey || notification?.dedupe_key || '',
     };
 }
 

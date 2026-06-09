@@ -12,7 +12,7 @@ export default function MobileTopNavbar({
 }) {
     const { theme, toggleTheme } = useTheme();
     const { profile } = useUser();
-    const { notifications, notificationCount, clearAllNotifications } = useNotifications();
+    const { notifications, notificationCount, clearAllNotifications, markAsRead } = useNotifications();
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const notificationRef = useRef(null);
 
@@ -84,7 +84,7 @@ export default function MobileTopNavbar({
                 >
                     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
                         <h3 className="text-sm font-bold">Notifikasi</h3>
-                        {notificationCount > 0 && (
+                        {notifications.length > 0 && (
                             <button
                                 type="button"
                                 onClick={handleClearAll}
@@ -102,8 +102,14 @@ export default function MobileTopNavbar({
                                     <a
                                         key={notification.id}
                                         href={notification.url || '/'}
-                                        onClick={() => setIsNotificationOpen(false)}
-                                        className="flex gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-blue-50 dark:hover:bg-slate-800"
+                                        onClick={() => {
+                                            markAsRead(notification.id);
+                                            setIsNotificationOpen(false);
+                                        }}
+                                        className={`flex gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-blue-50 dark:hover:bg-slate-800 ${notification.readAt
+                                            ? 'opacity-75'
+                                            : 'bg-blue-50/60 dark:bg-blue-950/20'
+                                            }`}
                                     >
                                         <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-500 dark:bg-blue-950/40 dark:text-blue-300">
                                             <span className="material-symbols-outlined text-[18px]">

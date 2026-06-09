@@ -236,12 +236,25 @@ async function deleteSubscriptionFromDb(endpoint) {
  * @param {string} params.title - Notification title
  * @param {string} params.body - Notification body text
  * @param {string} [params.url='/'] - URL to open when notification is clicked
+ * @param {string} [params.icon] - Notification image icon
+ * @param {string} [params.iconName] - Material icon name for in-app notification center
+ * @param {string} [params.notificationId] - Existing notification row ID
+ * @param {string} [params.dedupeKey] - Notification dedupe key
  */
-export async function sendPushNotification({ userId, title, body, url = '/' }) {
+export async function sendPushNotification({
+    userId,
+    title,
+    body,
+    url = '/',
+    icon,
+    iconName,
+    notificationId,
+    dedupeKey,
+}) {
     if (!supabase) throw new Error('Supabase tidak tersedia');
 
     const { data, error } = await supabase.functions.invoke('send-push', {
-        body: { userId, title, body, url },
+        body: { userId, title, body, url, icon, iconName, notificationId, dedupeKey },
     });
 
     if (error) {

@@ -1,0 +1,5 @@
+[functions.send-push]
+verify_jwt = false
+
+[functions.check-reminders]
+verify_jwt = false
